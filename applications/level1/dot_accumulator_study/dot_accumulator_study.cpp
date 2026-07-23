@@ -1,4 +1,4 @@
-// mp-blas Milestone 1 -- level-1 accumulator study: dot product.
+// mp-blas Milestone 1 -- level-1 accumulator study: dot product and nrm2.
 //
 // The three precisions of a mixed-precision inner product are independent
 // (mtl/math/accumulator_traits.hpp): element precision (bandwidth in),
@@ -12,12 +12,18 @@
 //   promoted dot<double,  double>  -- sum products in double
 //   quire    dot<quire,   double>  -- exact sum of products, single round-out
 //
-// Error is relative to a long-double reference over the SAME quantized element
-// values, so quantization error cancels and only the accumulator differs.
+// Two reductions are swept:
+//   * dot  : x . y over deterministic pseudo-random x, y in (-1, 1).
+//   * nrm2 : sqrt(x . x). The accumulation error lives entirely in the
+//            sum-of-squares dot, so nrm2 reuses the same accumulator machinery
+//            (computed as sqrt of dot<Acc, double>(x, x); MTL5's two_norm<Acc>
+//            delivers value<Acc> with no Result seam, so it cannot round a quire
+//            out -- the dot(x,x) formulation is the portable mixed path).
 //
-// The story this seeds: for a low-precision element type, how wide an
-// accumulator does a dot product actually need as the length n grows, and where
-// does the exact quire earn its cost over a merely-promoted double accumulator?
+// Element types: posit, cfloat, and lns -- each admits the generic Universal
+// quire via mp-blas's quire_accumulator.hpp adapter. Error is relative to a
+// long-double reference over the SAME quantized element values, so quantization
+// error cancels and only the accumulator differs.
 //
 // Usage: dot_accumulator_study [nmax]   (default nmax = 1<<20)
 #include <cmath>
@@ -27,13 +33,14 @@
 #include <iomanip>
 #include <iostream>
 #include <string>
-#include <vector>
 
 #include <mtl/math/quire_accumulator.hpp>   // must precede dot.hpp's traits use
 #include <mtl/vec/dense_vector.hpp>
 #include <mtl/operation/dot.hpp>
 
 #include <universal/number/posit/posit.hpp>
+#include <universal/number/cfloat/cfloat.hpp>
+#include <universal/number/lns/lns.hpp>
 
 namespace {
 
@@ -46,13 +53,16 @@ double synth(std::size_t i, std::size_t salt) {
     return 2.0 * (static_cast<double>(z >> 11) * 0x1.0p-53) - 1.0;
 }
 
-template <typename Posit>
-void study(const std::string& name, std::size_t nmax) {
+enum class Kind { dot, nrm2 };
+
+template <typename T>
+void study(Kind kind, const std::string& name, std::size_t nmax) {
     using sw::universal::quire;
-    using Quire = quire<Posit>;
+    using Quire = quire<T>;
     using mtl::math::fma_accumulator;
 
-    std::cout << "\n=== element type " << name << " (accumulate, deliver double) ===\n"
+    std::cout << "\n=== " << (kind == Kind::dot ? "dot  " : "nrm2 ")
+              << "element type " << name << " (accumulate, deliver double) ===\n"
               << std::right
               << std::setw(10) << "n"
               << std::setw(13) << "native"
@@ -61,24 +71,30 @@ void study(const std::string& name, std::size_t nmax) {
               << std::setw(13) << "quire" << '\n';
 
     for (std::size_t n = 256; n <= nmax; n *= 4) {
-        mtl::vec::dense_vector<Posit> x(n, Posit(0)), y(n, Posit(0));
-        long double ref = 0.0L;
+        mtl::vec::dense_vector<T> x(n, T(0)), y(n, T(0));
+        long double ref = 0.0L;   // dot: sum xi*yi ; nrm2: sum xi*xi (sqrt applied below)
         for (std::size_t i = 0; i < n; ++i) {
-            Posit xi = Posit(synth(i, 1)), yi = Posit(synth(i, 2));
+            T xi = T(synth(i, 1));
+            T yi = (kind == Kind::dot) ? T(synth(i, 2)) : xi;
             x(static_cast<int>(i)) = xi;
             y(static_cast<int>(i)) = yi;
             ref += static_cast<long double>(static_cast<double>(xi))
                  * static_cast<long double>(static_cast<double>(yi));
         }
+        if (kind == Kind::nrm2) ref = std::sqrt(ref);
         const long double denom = std::abs(ref) > 0.0L ? std::abs(ref) : 1.0L;
+
+        auto deliver = [&](double sum_of_products) {
+            return kind == Kind::nrm2 ? std::sqrt(sum_of_products) : sum_of_products;
+        };
         auto rel = [&](double v) {
             return static_cast<double>(std::abs(static_cast<long double>(v) - ref) / denom);
         };
 
-        double native   = mtl::dot<Posit, double>(x, y);
-        double fma       = mtl::dot<fma_accumulator<double>, double>(x, y);
-        double promoted  = mtl::dot<double, double>(x, y);
-        double quirev    = mtl::dot<Quire, double>(x, y);
+        double native   = deliver(mtl::dot<T, double>(x, y));
+        double fma       = deliver(mtl::dot<fma_accumulator<double>, double>(x, y));
+        double promoted  = deliver(mtl::dot<double, double>(x, y));
+        double quirev    = deliver(mtl::dot<Quire, double>(x, y));
 
         std::cout << std::setw(10) << n
                   << std::scientific << std::setprecision(3)
@@ -90,18 +106,28 @@ void study(const std::string& name, std::size_t nmax) {
     }
 }
 
+template <typename T>
+void both(const std::string& name, std::size_t nmax) {
+    study<T>(Kind::dot, name, nmax);
+    study<T>(Kind::nrm2, name, nmax);
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
     std::size_t nmax = std::size_t{1} << 20;
     if (argc > 1) nmax = static_cast<std::size_t>(std::atoll(argv[1]));
 
-    std::cout << "Level-1 dot-product accumulator study\n"
+    std::cout << "Level-1 accumulator study (dot and nrm2)\n"
               << "relative error vs a long-double reference over the same quantized values\n"
               << "columns: native (element-precision) | fma(double) | promoted(double) | quire(exact)\n";
 
-    study<sw::universal::posit<16, 2>>("posit<16,2>", nmax);
-    study<sw::universal::posit<32, 2>>("posit<32,2>", nmax);
+    both<sw::universal::posit<16, 2>>("posit<16,2>", nmax);
+    both<sw::universal::posit<32, 2>>("posit<32,2>", nmax);
+    both<sw::universal::cfloat<16, 5>>("cfloat<16,5>", nmax);
+    both<sw::universal::cfloat<32, 8>>("cfloat<32,8>", nmax);
+    both<sw::universal::lns<16, 8>>("lns<16,8>", nmax);
+    both<sw::universal::lns<32, 16>>("lns<32,16>", nmax);
 
     return 0;
 }

@@ -1,9 +1,16 @@
-# Level-1 accumulator study: the dot product
+# Level-1 accumulator study: `dot` and `nrm2`
 
 **Question.** For a low-precision *element* type, how wide an *accumulator* does
-a dot product need as the length `n` grows — and where does an exact
+a level-1 reduction need as the length `n` grows — and where does an exact
 super-accumulator (Universal `quire`) earn its cost over a merely-promoted
 `double` accumulator?
+
+Two reductions are swept: **`dot`** (`x·y`) and **`nrm2`** (`sqrt(x·x)`). The
+accumulation error of `nrm2` lives entirely in its sum-of-squares dot, so both
+reuse the same accumulator machinery (`nrm2` is computed as `sqrt` of the
+sum-of-squares dot; MTL5's `two_norm<Acc>` delivers `value<Acc>` with no
+`Result` seam, so it cannot round a quire out — the `dot(x,x)` formulation is
+the portable mixed path).
 
 The three precisions of a mixed-precision inner product are independent
 (MTL5 `mtl/math/accumulator_traits.hpp`): the **element** precision (bandwidth
@@ -21,8 +28,9 @@ numbers isolate **accumulation** error, not storage rounding:
 
 The `quire` accumulator is supplied by mp-blas's
 [`include/mtl/math/quire_accumulator.hpp`](../include/mtl/math/quire_accumulator.hpp),
-which specializes MTL5's `accumulator_traits` for a Universal posit quire —
-MTL5 itself stays free of any Universal dependency.
+which specializes MTL5's `accumulator_traits` for the Universal quire of a
+posit, cfloat, or lns element — MTL5 itself stays free of any Universal
+dependency.
 
 Error is relative to a `long double` reference over the **same quantized element
 values**, so quantization error cancels and only the accumulator differs.
@@ -60,6 +68,34 @@ elements in (-1, 1)).
 |    65536 | 9.9e-07  | 6.2e-15  | 5.9e-15  | 5.9e-17  |
 |   262144 | 8.5e-07  | 2.1e-14  | 1.9e-14  | 1.2e-16  |
 |  1048576 | 6.1e-07  | 3.7e-14  | 3.3e-14  | 1.9e-16  |
+
+### element types `cfloat` and `lns` (dot, at n=65536)
+
+The posit story repeats for `cfloat` — **with two quire defects the sweep
+surfaced in Universal** (issues filed, see below). `cfloat<32,8>`'s quire is
+exact (~1e-17); `cfloat<16,5>`'s quire **floors at ~1e-9** — worse than a
+promoted `double`, which is exact for 16-bit elements:
+
+| type / n=65536 | native   | fma / promoted | quire       |
+|----------------|---------:|---------------:|------------:|
+| `cfloat<16,5>` | 1.4e-02  | **0**          | 1.9e-09 ⚠️  |
+| `cfloat<32,8>` | 2.6e-06  | 4.6e-16        | 3.7e-17 ✓   |
+| `lns<16,8>`    | 8.0e-02  | 6.4e-15        | 1.7e-06 ⚠️  |
+| `lns<32,16>`   | 2.3e-02  | 6.7e-15        | 6.1e-11 ⚠️  |
+
+For **`lns` the "exact" quire is a liability**: its `quire_mul` routes the
+product through `double`, so the quire floor (1.7e-6 for `lns<16,8>`) is far
+*worse* than a promoted `double` accumulator (~6e-15). For lns, promote — do not
+use the quire.
+
+### `nrm2`
+
+`nrm2 = sqrt(x·x)` mirrors `dot` on every element type (the sum-of-squares is
+the same reduction). Native `nrm2` degrades even faster with `n` because the
+squares are all positive — e.g. `posit<16,2>` native `nrm2` is **78% wrong at
+n=65536** — while `promoted`/`quire` stay at the machine floor (posit, wide
+cfloat) or the type's quire floor (narrow cfloat, lns). Run the tool for the
+full `nrm2` tables.
 
 ## Findings
 
@@ -105,3 +141,37 @@ washed out once a cheaper mechanism (there, iterative refinement) already
 absorbs the accumulation error* — here the cheaper mechanism is simply a wider
 built-in accumulator, and it only runs out of headroom when the element type
 approaches the accumulator's own width.
+
+For **cfloat and lns the recommendation is currently even simpler — promote to
+`double`** — because their quire is not yet dependably exact (below). Once the
+Universal fixes land, cfloat should match posit (exact, flat in `n`); lns needs
+an exact log-domain product before its quire is worth using at all.
+
+## Universal gaps surfaced
+
+Extending the sweep to cfloat and lns turned this study into a conformance test
+for Universal's quire. Three requirements were generated and filed:
+
+1. **[stillwater-sc/universal#1201]** — `cfloat.hpp` / `lns.hpp` do not include
+   their `fdp.hpp`, so `quire_mul` is undeclared out of the box (unlike
+   `posit.hpp`). The mp-blas adapter works around this by including the `fdp`
+   headers explicitly.
+2. **[stillwater-sc/universal#1202]** — `quire_traits<cfloat>::radix_point` is
+   undersized for no-subnormals configs: it reserves room for `minpos²` but not
+   for a *normal* small value's product, which needs `2·fbits` more fraction
+   bits. Result: `cfloat<16,5>` quire dot floors at ~2⁻³¹ (~1e-9) instead of
+   exact. Confirmed — turning subnormals on (which widens `radix_point`) makes
+   it bit-exact; `cfloat<32,8>` is already wide enough.
+3. **[stillwater-sc/universal#1203]** — `quire_mul(lns, lns)` forms the product
+   in `double`, so the lns quire is not exact (single-product error 7.6e-6 for
+   `lns<16,8>`) and is *worse* than a promoted `double` accumulator. Needs an
+   exact log-domain product, or a documented non-exactness guarantee.
+
+The mp-blas quire adapter and `test_dot_quire` encode current behavior: they
+assert the quire is **never worse than native** for every element type, and
+**exact** only where it genuinely is today (posit any width, wide cfloat). When
+the fixes land, the exactness assertions can extend to cfloat<16,5> and lns.
+
+[stillwater-sc/universal#1201]: https://github.com/stillwater-sc/universal/issues/1201
+[stillwater-sc/universal#1202]: https://github.com/stillwater-sc/universal/issues/1202
+[stillwater-sc/universal#1203]: https://github.com/stillwater-sc/universal/issues/1203

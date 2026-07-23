@@ -33,8 +33,23 @@
   at ~1e-16 while a promoted `double` accumulator drifts to ~3e-14 (~200× at
   n≈10⁶) — the quire earns its cost when the element width approaches the
   accumulator's own width.
-- [ ] Extend the sweep to `nrm2` and to `cfloat`/`lns` quire instances (the
-  adapter is posit-only today).
+- [x] Extend the sweep to `nrm2` and to `cfloat`/`lns` element types. The
+  adapter now specializes the quire for posit, cfloat, and lns. `nrm2` mirrors
+  `dot` (same sum-of-squares reduction); native degrades faster (all-positive
+  squares) — `posit<16,2>` native `nrm2` is 78% wrong at n=65536.
+
+  Extending to cfloat/lns turned the sweep into a conformance test for
+  Universal's quire and surfaced three upstream requirements (filed):
+  - stillwater-sc/universal#1201 — `cfloat.hpp`/`lns.hpp` don't include
+    `fdp.hpp`, so `quire_mul` is undeclared out of the box.
+  - stillwater-sc/universal#1202 — `quire_traits<cfloat>::radix_point`
+    undersized for no-subnormals configs → `cfloat<16,5>` quire floors at ~1e-9
+    instead of exact (confirmed: subnormals-on is bit-exact).
+  - stillwater-sc/universal#1203 — `quire_mul(lns,lns)` routes through `double`,
+    so the lns quire is not exact and is worse than a promoted `double`.
+
+  Current guidance: posit/wide-cfloat → quire is exact; ≤16-bit → promote to
+  `double`; **lns → always promote** (quire is a liability until #1203 lands).
 
 ## Milestone 2: mixed-precision level-2 kernels
 
