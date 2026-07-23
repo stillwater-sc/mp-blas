@@ -67,3 +67,9 @@ vcpkg_installed/
 # test output & cache
 Testing/
 .cache/
+
+# CMake presets (user-local)
+CMakeUserPresets.json
+
+# Downloaded data (fetched on demand, never committed)
+data/

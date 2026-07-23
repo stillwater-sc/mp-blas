@@ -1,0 +1,5 @@
+@PACKAGE_INIT@
+
+include("${CMAKE_CURRENT_LIST_DIR}/mp_blasTargets.cmake")
+
+check_required_components(mp_blas)
