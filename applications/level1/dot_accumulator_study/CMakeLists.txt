@@ -1,0 +1,2 @@
+add_executable(dot_accumulator_study dot_accumulator_study.cpp)
+target_link_libraries(dot_accumulator_study PRIVATE sw::mp_blas)

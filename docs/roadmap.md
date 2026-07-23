@@ -16,12 +16,25 @@
 
 ## Milestone 1: mixed-precision level-1 kernels + accumulator study
 
-- Accumulator sweep for `dot` / `nrm2`: native vs promoted (`float`/`double`)
-  vs exact (Universal `quire`, single rounding), as a function of vector
-  length and element precision. Reuse MTL5's `accumulator_traits` seam; the
-  quire adapter mirrors mp-iterative's `quire_accumulator.hpp`.
-- Error-vs-n growth curves; document where each 16-bit element type needs a
-  wider accumulator.
+- [x] Quire accumulator adapter (`include/mtl/math/quire_accumulator.hpp`)
+  specializing MTL5's `accumulator_traits` for a Universal posit quire (mirrors
+  mp-iterative's adapter; kept local so mp-blas has no cross-repo header
+  dependency). Test: `tests/level1/test_dot_quire.cpp` (quire recovers terms
+  native same-precision accumulation swamps).
+- [x] Accumulator sweep for `dot`: native vs fma vs promoted `double` vs exact
+  quire, as a function of vector length and element precision
+  (`applications/level1/dot_accumulator_study`). Write-up:
+  [docs/level1-accumulator-study.md](level1-accumulator-study.md).
+
+  **Headline findings.** (1) Same-precision accumulation is unsafe at scale —
+  `posit<16,2>` native dot is 25% wrong at n≈10⁶ (swamping). (2) For ≤16-bit
+  elements a promoted `double` accumulator is already exact; the quire buys
+  nothing. (3) For `posit<32,2>` over long reductions the exact quire stays flat
+  at ~1e-16 while a promoted `double` accumulator drifts to ~3e-14 (~200× at
+  n≈10⁶) — the quire earns its cost when the element width approaches the
+  accumulator's own width.
+- [ ] Extend the sweep to `nrm2` and to `cfloat`/`lns` quire instances (the
+  adapter is posit-only today).
 
 ## Milestone 2: mixed-precision level-2 kernels
 
