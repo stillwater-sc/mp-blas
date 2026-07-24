@@ -14,3 +14,6 @@ add_subdirectory(level3/matmul_accumulator_study)
 
 # Triangular-solve accuracy across number precisions (feeds mp-spice).
 add_subdirectory(level2/trsv_precision)
+
+# Quantization QSNR + mixed-precision dot (migrated from Universal mpdot/mpfma).
+add_subdirectory(level1/quantization_qsnr)
