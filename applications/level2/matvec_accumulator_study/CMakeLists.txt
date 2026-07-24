@@ -1,0 +1,2 @@
+add_executable(matvec_accumulator_study matvec_accumulator_study.cpp)
+target_link_libraries(matvec_accumulator_study PRIVATE sw::mp_blas)
