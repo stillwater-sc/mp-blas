@@ -7,3 +7,6 @@ mpblas_add_test(test_axpy_dot_smoke)
 # accumulator study). The quire must recover terms that native same-precision
 # accumulation swamps.
 mpblas_add_test(test_dot_quire)
+
+# Quantization signal-to-noise ratio (QSNR) of number types + mixed-precision dot.
+mpblas_add_test(test_qsnr)
