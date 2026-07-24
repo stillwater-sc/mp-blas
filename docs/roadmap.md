@@ -58,8 +58,11 @@
   sweeps native/promoted/quire on swamping rows; `tests/level2/test_gemv_quire`
   checks the quire is never worse and exact for posit / wide cfloat. Migrated
   from Universal `applications/reproducibility/blas/l2_fmv.cpp`.
-- `trsv` precision study: forward/backward substitution error at low
-  precision — feeds the mp-spice factorization work.
+- [x] `trsv` precision study: `applications/level2/trsv_precision` +
+  `tests/level2/test_trsv_smoke` -- back-substitution error vs the triangular
+  factor's conditioning x working precision (feeds the mp-spice factorization
+  work). MTL5's trsv has no accumulator seam, so this is an element-precision
+  study.
 
 ## Milestone 3: mixed-precision level-3 kernels + benchmarking
 

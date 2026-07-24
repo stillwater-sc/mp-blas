@@ -11,3 +11,6 @@ add_subdirectory(level1/dot_accumulator_study)
 # Level-2/3 accumulator sweeps (native/promoted/quire) on swamping problems.
 add_subdirectory(level2/matvec_accumulator_study)
 add_subdirectory(level3/matmul_accumulator_study)
+
+# Triangular-solve accuracy across number precisions (feeds mp-spice).
+add_subdirectory(level2/trsv_precision)
