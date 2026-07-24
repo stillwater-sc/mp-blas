@@ -53,13 +53,20 @@
 
 ## Milestone 2: mixed-precision level-2 kernels
 
-- `gemv` with promoted/exact accumulation per output element (MTL5 `mult`
-  already takes an `Accumulator` template parameter).
+- [x] `gemv` with promoted/exact accumulation per output element (via MTL5
+  `mult`'s `Accumulator` parameter): `applications/level2/matvec_accumulator_study`
+  sweeps native/promoted/quire on swamping rows; `tests/level2/test_gemv_quire`
+  checks the quire is never worse and exact for posit / wide cfloat. Migrated
+  from Universal `applications/reproducibility/blas/l2_fmv.cpp`.
 - `trsv` precision study: forward/backward substitution error at low
   precision — feeds the mp-spice factorization work.
 
 ## Milestone 3: mixed-precision level-3 kernels + benchmarking
 
+- [x] `gemm` exact/promoted accumulation:
+  `applications/level3/matmul_accumulator_study` + `tests/level3/test_gemm_quire`
+  (L3 analogue of the above). Migrated from Universal
+  `applications/reproducibility/blas/l3_fmm.cpp`.
 - `gemm` in the tensor-core idiom: low-precision multiplicands,
   higher-precision (or exact quire) accumulation, fused convert on writeback.
 - Benchmark harness: accuracy AND throughput tables (compare against
