@@ -126,6 +126,20 @@ int main(int argc, char* argv[]) {
     both<sw::universal::posit<32, 2>>("posit<32,2>", nmax);
     both<sw::universal::cfloat<16, 5>>("cfloat<16,5>", nmax);
     both<sw::universal::cfloat<32, 8>>("cfloat<32,8>", nmax);
+
+    // Subnormal-enabled counterparts. These are the WORKAROUND for
+    // stillwater-sc/universal#1202: quire_traits<cfloat>::radix_point is derived
+    // from |min_product_scale| alone, which places minpos^2's LEADING bit on bit
+    // 0 but truncates the product's remaining ~2*fbits significand bits. Turning
+    // subnormals on drops min_scale by fbits, which incidentally buys the quire
+    // exactly the low-order headroom the products need -- so a subnormal-enabled
+    // cfloat quire is bit-exact while its no-subnormals twin floors at
+    // 2^-radix_point. Same nbits/es, same arithmetic: only the quire differs.
+    both<sw::universal::cfloat<16, 5, std::uint8_t, true, false, false>>(
+        "cfloat<16,5>+subn", nmax);
+    both<sw::universal::cfloat<32, 8, std::uint8_t, true, false, false>>(
+        "cfloat<32,8>+subn", nmax);
+
     both<sw::universal::lns<16, 8>>("lns<16,8>", nmax);
     both<sw::universal::lns<32, 16>>("lns<32,16>", nmax);
 

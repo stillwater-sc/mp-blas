@@ -210,6 +210,79 @@ void crossover(const std::string& name, std::size_t n) {
     }
 }
 
+/// Sweep the LENGTH at (approximately) fixed conditioning, to settle which
+/// constant the realized error actually carries. Wilkinson's deterministic
+/// bound says gamma_n ~ n*u; Higham & Mary's probabilistic analysis (2019) says
+/// sqrt(n)*u is the realistic constant. Normalizing the measured error by
+/// u*cond removes the conditioning axis, so whatever `n` dependence survives in
+/// the ratio column IS the answer:
+///
+///   ratio flat in n        ->  error = c*u*cond            (no n dependence)
+///   ratio grows like sqrt(n) ->  Higham-Mary probabilistic
+///   ratio grows like n       ->  Wilkinson worst case
+///
+/// The `sqrt(n)/sqrt(n0)` column is printed alongside as the yardstick: if the
+/// probabilistic model held, the normalized ratio would track it.
+/// Two regimes are swept, because they exercise different mechanisms:
+///   regime::cancel   -- cond pinned by generate_at_cond; cancellation-dominated.
+///                       The pairs cancel EXACTLY, which largely suppresses the
+///                       accumulate-many-roundings mechanism gamma_n describes,
+///                       so this isolates the cond axis.
+///   regime::positive -- cond == 2 identically for every n, so normalizing by
+///                       u*cond divides by a constant and ANY growth in the
+///                       ratio is pure n dependence. This is the controlled
+///                       experiment for the length axis.
+template <typename T>
+void length_sweep(const std::string& name, regime r, double target_cond, std::size_t nmax) {
+    const double u_elem = 0.5 * static_cast<double>(std::numeric_limits<T>::epsilon());
+    const double u_dbl  = 0.5 * std::numeric_limits<double>::epsilon();
+
+    std::cout << "\n=== length sweep, regime " << sw::mp_blas::to_string(r);
+    if (r == regime::cancel) std::cout << " at fixed cond ~ " << std::scientific
+                                       << std::setprecision(0) << target_cond;
+    else                     std::cout << " (cond == 2 for every n)";
+    std::cout << ", element " << name << " ===\n" << std::defaultfloat
+              << "  normalized columns divide the error by u*cond; flat => no n dependence\n"
+              << std::right
+              << std::setw(10) << "n"
+              << std::setw(11) << "cond"
+              << std::setw(11) << "native"
+              << std::setw(11) << "nat/u*cond"
+              << std::setw(11) << "promoted"
+              << std::setw(11) << "prm/u*cond"
+              << std::setw(11) << "sqrt(n/n0)" << '\n';
+
+    const std::size_t n0 = 256;
+    for (std::size_t n = n0; n <= nmax; n *= 4) {
+        auto [xd, yd] = (r == regime::cancel) ? sw::mp_blas::generate_at_cond(n, target_cond)
+                                              : sw::mp_blas::generate(r, n, 0.0);
+        mtl::vec::dense_vector<T> a(n, T(0)), b(n, T(0));
+        for (std::size_t i = 0; i < n; ++i) {
+            a[i] = T(xd[i]); b[i] = T(yd[i]);
+            xd[i] = static_cast<double>(a[i]);
+            yd[i] = static_cast<double>(b[i]);
+        }
+        const dot_features f = sw::mp_blas::characterize(xd, yd, u_elem);
+        if (f.ref == 0.0 || !std::isfinite(f.cond)) continue;
+        const double denom = std::abs(f.ref);
+        auto rel = [&](double v) { return std::abs(v - f.ref) / denom; };
+
+        const double e_nat = rel(mtl::dot<T, double>(a, b));
+        const double e_prm = rel(mtl::dot<double, double>(a, b));
+
+        std::cout << std::setw(10) << n
+                  << std::scientific << std::setprecision(1)
+                  << std::setw(11) << f.cond
+                  << std::setw(11) << e_nat
+                  << std::setw(11) << e_nat / (u_elem * f.cond)
+                  << std::setw(11) << e_prm
+                  << std::setw(11) << e_prm / (u_dbl * f.cond)
+                  << std::fixed << std::setprecision(1)
+                  << std::setw(11) << std::sqrt(double(n) / double(n0))
+                  << std::defaultfloat << '\n';
+    }
+}
+
 } // namespace
 
 int main(int argc, char* argv[]) {
@@ -232,6 +305,13 @@ int main(int argc, char* argv[]) {
     study<sw::universal::cfloat<32, 8>>("cfloat<32,8>", n);
 
     crossover<sw::universal::posit<32, 2>>("posit<32,2>", n);
+
+    // Milestone 1b: does the realized error carry u, sqrt(n)*u, or n*u? Two
+    // controlled sweeps -- one isolating the cond axis, one the length axis.
+    const std::size_t nmax = std::max<std::size_t>(n, 65536);
+    length_sweep<sw::universal::posit<32, 2>>("posit<32,2>", regime::cancel, 1e12, nmax);
+    length_sweep<sw::universal::posit<32, 2>>("posit<32,2>", regime::positive, 0.0, nmax);
+    length_sweep<sw::universal::posit<16, 2>>("posit<16,2>", regime::positive, 0.0, nmax);
 
     return 0;
 }

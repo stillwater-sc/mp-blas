@@ -48,8 +48,28 @@
   - stillwater-sc/universal#1203 — `quire_mul(lns,lns)` routes through `double`,
     so the lns quire is not exact and is worse than a promoted `double`.
 
-  Current guidance: posit/wide-cfloat → quire is exact; ≤16-bit → promote to
-  `double`; **lns → always promote** (quire is a liability until #1203 lands).
+- [x] Close out the cfloat/lns quire gaps as far as mp-blas can. All three
+  upstream issues are still **open** as of 2026-07-28 and both defects reproduce
+  against current Universal, so the exactness fixes themselves remain blocked
+  upstream — but the mp-blas-side work is done:
+  - **cfloat: workaround found, measured, and pinned.** Enabling subnormals
+    widens `quire_traits<cfloat>::radix_point` 28 → 48 and makes a
+    `cfloat<16,5>` quire **bit-exact** where its no-subnormals twin floors at
+    `~2^-28 ≈ 3.7e-9`; native/fma/promoted columns are bit-identical, so only
+    the quire changes. Root cause diagnosed: `radix_point` is sized from the
+    smallest product *scale*, but a product carries `2·(fbits+1)` significand
+    bits extending below its leading bit. `dot_accumulator_study` gained `+subn`
+    rows; `test_dot_quire` pins it on a non-dyadic construction (the original
+    powers-of-two case could not see the defect).
+  - **lns: the guidance is structural, not temporary.** An lns product
+    `2^(k + m/2^rbits)` is irrational for `m ≠ 0`, so *no* linear fixed-point
+    super-accumulator can hold it exactly. universal#1203's achievable goal is
+    "round each product at quire precision instead of double's 53 bits", not
+    "be exact". **lns → promote, permanently.**
+
+  Current guidance: posit any width, wide cfloat, and **any subnormal-enabled
+  cfloat** → quire is exact; narrow cfloat without subnormals → enable
+  subnormals or promote; **lns → always promote**.
 
 ## Milestone 1b: dot-product characterization (issue #9)
 
@@ -88,10 +108,17 @@
   mp-iterative Krylov orthogonalization/residuals, mp-ode) and report the `cond`
   **distribution and upper quantiles** — the accumulator must be chosen for the
   tail, not the mean.
-- [ ] Length sweep at fixed `cond` to settle whether the realized constant is
-  `u`, `sqrt(n)*u` (Higham-Mary probabilistic), or `n*u` (Wilkinson worst case).
-  Section 4.2 shows no visible `n` dependence, but that is a property of these
-  generators, not a theorem.
+- [x] Length sweep at fixed `cond` — **settled** (§4.3 of the write-up). Two
+  controlled sweeps, because the question is only answerable with one axis
+  pinned: (a) `cond` held at 1e12 across a 256× length range → the normalized
+  error is *flat*, so there is no `n` dependence on the conditioning axis;
+  (b) the `positive` regime, where `cond ≡ 2` for every `n`, isolates the length
+  axis → a fixed-precision `double` accumulator grows ~5.6× per 256× `n`,
+  **consistent with Higham-Mary's `sqrt(n)*u` and refuting `n*u`** (which would
+  predict 256×). Unexpected third result: **posit native accumulation grows
+  *superlinearly*** (~1300× per 256× `n`) because a tapered format's local unit
+  roundoff coarsens as the running sum grows — no constant-`u` model covers it,
+  which is a further argument against accumulating in a tapered format.
 
 ## Milestone 2: mixed-precision level-2 kernels
 

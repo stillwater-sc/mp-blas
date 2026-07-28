@@ -11,12 +11,17 @@
 //   * ALWAYS: the quire is no worse than native same-precision accumulation
 //     (holds for every element type; robust to the known Universal quire
 //     limitations in cfloat<16,5>/lns -- see stillwater-sc/universal#1202/#1203).
-//   * EXACT: for the types whose quire is genuinely exact (posit, wide cfloat),
-//     the quire recovers the swamped terms to (near) zero error.
+//   * EXACT: for the types whose quire is genuinely exact -- posit at any width,
+//     wide cfloat, and ANY subnormal-enabled cfloat -- the quire recovers the
+//     swamped terms to (near) zero error. Subnormals widen
+//     quire_traits<cfloat>::radix_point enough to hold a product's full
+//     significand, which is the workaround for universal#1202; a narrow cfloat
+//     WITHOUT subnormals still only gets the no-worse-than-native guarantee.
 //
 // Returns non-zero on failure (no external test framework).
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <iostream>
 #include <string>
 
@@ -79,6 +84,39 @@ bool quire_exact(const std::string& name) {
     return true;
 }
 
+// A DISCRIMINATING case for universal#1202. swamp_errors above uses exact
+// powers of two (1 and 1/4096), whose products are single bits -- an undersized
+// radix_point truncates nothing, so that construction cannot tell a correctly
+// sized quire from a short one (and indeed cfloat<16,5> reports 0 there). Here
+// the values carry full significands, so each product has ~2*fbits significand
+// bits extending BELOW its leading bit, which is exactly what a short
+// radix_point drops. Returns the quire's relative error vs a long-double
+// reference over the same quantized values.
+template <typename T>
+double dense_quire_relerr() {
+    using Quire = sw::universal::quire<T>;
+    constexpr std::size_t n = 512;
+    mtl::vec::dense_vector<T> x(n, T(0)), y(n, T(0));
+    long double ref = 0.0L;
+    for (std::size_t i = 0; i < n; ++i) {
+        // deterministic, deliberately non-dyadic values in (-1, 1)
+        std::uint64_t z = (i + 1) * 0x9E3779B97F4A7C15ull;
+        z ^= z >> 30; z *= 0xBF58476D1CE4E5B9ull;
+        z ^= z >> 27; z *= 0x94D049BB133111EBull; z ^= z >> 31;
+        const double xv = 2.0 * (static_cast<double>(z >> 11) * 0x1.0p-53) - 1.0;
+        z *= 0xD6E8FEB86659FD93ull; z ^= z >> 32;
+        const double yv = 2.0 * (static_cast<double>(z >> 11) * 0x1.0p-53) - 1.0;
+
+        const T xi(xv), yi(yv);
+        x[i] = xi; y[i] = yi;
+        ref += static_cast<long double>(static_cast<double>(xi))
+             * static_cast<long double>(static_cast<double>(yi));
+    }
+    const double q = mtl::dot<Quire, double>(x, y);
+    const long double denom = std::abs(ref) > 0.0L ? std::abs(ref) : 1.0L;
+    return static_cast<double>(std::abs(static_cast<long double>(q) - ref) / denom);
+}
+
 } // namespace
 
 int main() {
@@ -96,6 +134,30 @@ int main() {
     if (!quire_exact<sw::universal::posit<16, 2>>("posit<16,2>")) ++failures;
     if (!quire_exact<sw::universal::posit<32, 2>>("posit<32,2>")) ++failures;
     if (!quire_exact<sw::universal::cfloat<32, 8>>("cfloat<32,8>")) ++failures;
+
+    // The universal#1202 workaround, pinned on a construction that can actually
+    // see it: a NARROW cfloat whose quire floors at ~2^-28 without subnormals
+    // becomes bit-exact with them. Same nbits/es, same element arithmetic --
+    // only radix_point (28 -> 48) differs. If the +subn assertion ever
+    // regresses, docs/level1-accumulator-study.md's cfloat guidance is wrong and
+    // the study's +subn rows are stale.
+    {
+        using Narrow     = sw::universal::cfloat<16, 5>;
+        using NarrowSubn = sw::universal::cfloat<16, 5, std::uint8_t, true, false, false>;
+        const double e_plain = dense_quire_relerr<Narrow>();
+        const double e_subn  = dense_quire_relerr<NarrowSubn>();
+        std::cout << "cfloat<16,5> dense quire relerr: no-subn=" << e_plain
+                  << " +subn=" << e_subn << '\n';
+
+        // Only the workaround is asserted. The no-subnormals value is reported
+        // for contrast but deliberately NOT asserted to be bad -- when
+        // universal#1202 lands it should drop to 0, and that must not fail here.
+        if (!(e_subn <= 1e-15)) {
+            std::cerr << "cfloat<16,5>+subn quire not exact (relerr " << e_subn
+                      << ") -- universal#1202 workaround regressed\n";
+            ++failures;
+        }
+    }
 
     if (failures == 0) std::cout << "mp-blas level-1 quire test passed\n";
     return failures == 0 ? 0 : 1;

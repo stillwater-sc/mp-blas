@@ -260,4 +260,28 @@ generate(regime r, std::size_t n, double param = 0.0) {
     return {std::move(x), std::move(y)};
 }
 
+/// Generate a `cancel`-regime instance whose condition number is approximately
+/// `target_cond` REGARDLESS of n -- the control needed to separate the `n`
+/// dependence of the error from its `cond` dependence.
+///
+/// Two-pass: the paired terms set |x|'|y|, which grows with n, so a fixed
+/// residual would make cond grow with n too and confound the two axes. Probe
+/// with a unit residual to measure |x|'|y|, then choose the surviving residual
+/// as 2|x|'|y| / target_cond. Callers should still read the REALIZED cond back
+/// out of characterize() -- quantization moves it slightly.
+inline std::pair<std::vector<double>, std::vector<double>>
+generate_at_cond(std::size_t n, double target_cond) {
+    auto probe = generate(regime::cancel, n, 1.0);
+    const auto& px = probe.first;
+    const auto& py = probe.second;
+    std::vector<double> ax(n), ay(n);
+    for (std::size_t i = 0; i < n; ++i) { ax[i] = std::abs(px[i]); ay[i] = std::abs(py[i]); }
+    const double abs_sum = dot2(ax, ay);
+
+    const std::size_t m = (n - 1) / 2;
+    const double n_residual = static_cast<double>(n - 2 * m);   // how many residual slots
+    const double residual = 2.0 * abs_sum / (n_residual * target_cond);
+    return generate(regime::cancel, n, residual);
+}
+
 } // namespace sw::mp_blas
