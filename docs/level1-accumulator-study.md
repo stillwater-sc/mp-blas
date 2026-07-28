@@ -136,6 +136,18 @@ accumulator width and the reduction length**, not by habit:
 - 32-bit elements, long reductions → the exact quire is flat in `n` where a
   promoted accumulator drifts.
 
+> **Scope caveat, added by
+> [dot-product-characterization.md](dot-product-characterization.md) (issue #9).**
+> These rules are calibrated on *this page's* data — uniform pseudo-random
+> elements in (-1, 1), which is a benign, well-conditioned distribution. They are
+> statements about types only because the data is held fixed. On ill-conditioned
+> input the first rule fails outright: a promoted `double` accumulator loses all
+> correct digits once the dot-product condition number `cond = 2|x|'|y|/|x'y|`
+> exceeds `~1/u_double ≈ 1e16`, regardless of how narrow the elements are. And
+> even at `cond = 2` (its best possible value) a 16-bit *native* accumulator can
+> be 25% wrong through swamping alone. The data-driven criterion — measure `cond`
+> and `n_eff`, then choose — is developed there.
+
 This mirrors the mp-spice KLU result that *the quire helps a direct solve but is
 washed out once a cheaper mechanism (there, iterative refinement) already
 absorbs the accumulation error* — here the cheaper mechanism is simply a wider

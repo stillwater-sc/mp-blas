@@ -1,0 +1,2 @@
+add_executable(dot_characterization dot_characterization.cpp)
+target_link_libraries(dot_characterization PRIVATE sw::mp_blas)

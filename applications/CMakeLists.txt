@@ -17,3 +17,7 @@ add_subdirectory(level2/trsv_precision)
 
 # Quantization QSNR + mixed-precision dot (migrated from Universal mpdot/mpfma).
 add_subdirectory(level1/quantization_qsnr)
+
+# Dot-product characterization: structural features (cond, D, rho, n_eff, beta)
+# of an inner product vs the accumulation error and reproducibility they predict.
+add_subdirectory(level1/dot_characterization)

@@ -10,3 +10,8 @@ mpblas_add_test(test_dot_quire)
 
 # Quantization signal-to-noise ratio (QSNR) of number types + mixed-precision dot.
 mpblas_add_test(test_qsnr)
+
+# Dot-product characterization (issue #9): the structural feature vector
+# (cond, D, rho, n_eff, beta), the Wilkinson/Higham error bound it implies, and
+# the order-independence of exact quire accumulation.
+mpblas_add_test(test_dot_characterization)
