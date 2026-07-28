@@ -284,6 +284,82 @@ in its `cond` dependence — and note the realized coefficients are *below* `u`
 (`3.7e−9` and `1.1e−16` respectively), i.e. the `n = 4096` factor in `γ_n` does
 not materialize on this data.
 
+### 4.3 Length sweep: which constant does the error actually carry?
+
+§4.2 hinted that the `n` in `γ_n` does not materialize. This settles it with two
+*controlled* sweeps, because "does the error grow with `n`?" is only answerable
+if `cond` is held fixed while `n` moves.
+
+**(a) Conditioning-dominated.** `generate_at_cond` pins `cond ≈ 1e12` across a
+256× length range. Normalizing by `u·cond` removes the conditioning axis, so any
+`n` dependence left in the ratio is real.
+
+| n | cond | native | nat/(u·cond) | promoted | prm/(u·cond) | √(n/n₀) |
+|---:|---:|---:|---:|---:|---:|---:|
+| 256   | 9.8e+11 | 4.4e+02 | 0.12 | 2.2e-05 | 0.21  | 1.0 |
+| 1024  | 1.0e+12 | 2.4e+02 | 0.064| 1.9e-05 | 0.17  | 2.0 |
+| 4096  | 1.0e+12 | 1.4e+03 | 0.37 | 8.0e-06 | 0.072 | 4.0 |
+| 16384 | 1.0e+12 | 2.6e+02 | 0.071| 1.7e-06 | 0.015 | 8.0 |
+| 65536 | 1.0e+12 | 2.0e+02 | 0.054| 1.3e-06 | 0.012 | 16.0 |
+
+The normalized native column is **flat** — it scatters over 0.054…0.37 with no
+trend, against a `√n` yardstick running 1→16. The promoted column *decreases*.
+So in this regime the error is `c·u·cond` with **no `n` dependence at all**.
+
+**Caveat that matters:** this construction cancels pairwise *exactly*, which
+largely suppresses the accumulate-many-roundings mechanism `γ_n` is about. It
+isolates the `cond` axis by design — it is not evidence about the length axis.
+
+**(b) Length-dominated.** The `positive` regime has `cond ≡ 2` for every `n`, so
+normalizing divides by a constant and **any** growth in the ratio is pure `n`
+dependence. This is the controlled experiment for the other axis.
+
+`posit<32,2>` (`u = 3.7e-09`):
+
+| n | native | nat/(u·cond) | promoted | prm/(u·cond) | √(n/n₀) |
+|---:|---:|---:|---:|---:|---:|
+| 256   | 3.4e-09 | 0.46 | 5.0e-16 | 2.3  | 1.0 |
+| 1024  | 3.0e-07 | 40   | 8.4e-16 | 3.8  | 2.0 |
+| 4096  | 1.8e-07 | 24   | 4.1e-15 | 19   | 4.0 |
+| 16384 | 3.6e-07 | 48   | 4.8e-15 | 22   | 8.0 |
+| 65536 | 4.5e-06 | 610  | 3.0e-15 | 13   | 16.0 |
+
+Two different behaviors in one table:
+
+- **The `double` accumulator grows sublinearly.** `prm/(u·cond)` goes 2.3 → 13,
+  a factor of ~5.6 over a 256× increase in `n`. Wilkinson's `n·u` would predict
+  256×; Higham & Mary's `√n·u` predicts 16×. The measurement sits below the
+  probabilistic prediction and far below the deterministic one — **consistent
+  with `√n·u`, and a clear refutation of `n·u` as a realistic estimate** for a
+  fixed-precision accumulator on this data.
+- **The `posit` native accumulator grows *superlinearly*.** `nat/(u·cond)` goes
+  0.46 → 610, ~1300× over the same 256× length increase. This is not a violated
+  bound — Wilkinson's bound at `n = 65536` is `n·u·cond/2 = 4.9e-04` and the
+  measured `4.5e-06` sits comfortably under it. It is that **`u` is not
+  constant for a tapered format.** As the running sum climbs to `≈ n/3`, it
+  moves away from 1.0, posit's regime field lengthens and its fraction field
+  shrinks, so the *local* unit roundoff coarsens as the reduction proceeds. The
+  classical analysis is written for fixed-precision formats and simply does not
+  model this.
+
+`posit<16,2>` on the same regime saturates rather than diverging — `nat/(u·cond)`
+runs 0.63, 12, 520, 1700, 2000 — because the relative error itself reaches
+`9.5e-01`, i.e. essentially 100%. A ratio cannot keep growing once the answer is
+already entirely wrong.
+
+**Answer to the open question.** Both, on different axes:
+
+| axis | held fixed | realized growth | model |
+|---|---|---|---|
+| conditioning | `n` varies, `cond` pinned | none | `error = c·u·cond` |
+| length, fixed-precision accumulator | `cond ≡ 2` | ~5.6× per 256× `n` | `√n·u` (Higham–Mary) ✓ |
+| length, tapered-precision element | `cond ≡ 2` | ~1300× per 256× `n` | none of them — `u` varies with magnitude |
+
+The third row is the one worth carrying forward: **for posit, "unit roundoff" is
+not a single number**, so error models parameterized by a scalar `u` understate
+long native reductions. It is a further argument for not accumulating in a
+tapered format at all.
+
 ---
 
 ## 5. Findings
@@ -375,9 +451,16 @@ products" into a concrete program:
 - **Sparse structure** is not represented. The regimes are dense; MNA rows are
   short and sparse, and short reductions may be dominated by different effects
   than the `n = 4096` cases here.
-- **The `n`-independence observed in 4.2** is an empirical property of these
-  generators, not a theorem. A length sweep at fixed `cond` would settle whether
-  the realized constant is `u`, `√n·u`, or something between.
+- ~~The `n`-independence observed in 4.2 is an empirical property of these
+  generators, not a theorem.~~ **Settled in §4.3**: `n`-independence holds on the
+  conditioning axis; on the length axis a fixed-precision accumulator grows
+  consistently with `√n·u`, and a tapered-precision one grows faster than any
+  constant-`u` model predicts.
+- **Tapered precision has no error model here.** §4.3(b) shows posit's native
+  accumulation growing superlinearly in `n` because its local `u` coarsens as
+  the running sum grows. Quantifying that — an effective `u(magnitude)` for
+  posit, and a corresponding bound — is open, and would matter to anyone using
+  posit as an accumulator rather than as storage.
 
 ---
 

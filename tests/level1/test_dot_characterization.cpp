@@ -128,6 +128,20 @@ int main() {
         }
     }
 
+    // -- 3b. generate_at_cond pins cond independently of n -------------------
+    // The control the length sweep depends on: if cond drifted with n, the
+    // sweep could not separate the length axis from the conditioning axis.
+    {
+        const double target = 1e12;
+        for (std::size_t n : {256u, 1024u, 4096u, 16384u}) {
+            auto [x, y] = sw::mp_blas::generate_at_cond(n, target);
+            const auto f = sw::mp_blas::characterize(x, y, 1e-16);
+            check(f.cond > target / 4.0 && f.cond < target * 4.0,
+                  "generate_at_cond missed its target at n=" + std::to_string(n) +
+                      " (cond=" + std::to_string(f.cond) + ", target=" + std::to_string(target) + ")");
+        }
+    }
+
     // -- 4. Swamping is a distinct axis: D up => n_eff down ------------------
     // Both instances are benign by cond, so any difference in n_eff is dynamic
     // range alone. This is why cond is not a sufficient statistic.
