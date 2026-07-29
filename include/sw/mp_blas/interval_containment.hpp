@@ -42,19 +42,81 @@
 #include <string>
 #include <vector>
 
+#include <sw/mp_blas/dot_characterization.hpp>   // two_sum, two_product, dot2
 #include <universal/number/interval/interval.hpp>
 
 namespace sw::mp_blas {
 
 // ---------------------------------------------------------------------------
-// Reference type
+// Reference value
 // ---------------------------------------------------------------------------
 //
-// `long double` is the widest built-in reference available portably. On x86 it
-// carries a 64-bit significand, which holds the product of two <=32-bit
-// Universal values exactly; for `double` elements use dot2() from
-// dot_characterization.hpp and pass its result in as the reference instead.
-using reference_t = long double;
+// The reference MUST carry more precision than the interval's Scalar, otherwise
+// a sub-ulp containment violation is invisible: the reference agrees with the
+// wrong answer and the check passes.
+//
+// `long double` is the obvious candidate and the wrong one. It is 80-bit on
+// x86-64 Linux but only 64-bit -- i.e. no wider than `double` -- on ARM64 and
+// MSVC, so a harness built on it silently loses all its discriminating power on
+// those platforms (observed: the negative control below PASSED on macOS ARM64,
+// meaning the gate had gone blind). Universal's types also do not uniformly
+// provide `explicit operator long double()`, so it does not even compile on
+// MSVC.
+//
+// Instead, carry the reference as an unevaluated sum of two doubles built by
+// error-free transformations. EFTs are exact on any IEEE-754 binary64
+// implementation, so this behaves identically on every platform and delivers
+// ~106 bits -- more than 80-bit long double ever did.
+struct exact_ref {
+    double hi = 0.0;   ///< leading term
+    double lo = 0.0;   ///< exact remainder; the represented value is hi + lo
+
+    /// A reference that is already a plain double (e.g. a dot2() result).
+    static exact_ref from(double v) { return { v, 0.0 }; }
+
+    static exact_ref sum(double a, double b) {
+        exact_ref r; two_sum(a, b, r.hi, r.lo); return r;
+    }
+    static exact_ref difference(double a, double b) {
+        exact_ref r; two_sum(a, -b, r.hi, r.lo); return r;
+    }
+    static exact_ref product(double a, double b) {
+        exact_ref r; two_product(a, b, r.hi, r.lo); return r;
+    }
+    /// a/b to ~106 bits. Unlike the others this is not exact -- a quotient can
+    /// need unboundedly many bits (1/3) -- but the residual correction puts the
+    /// error at ~2^-106, far below the ~1 ulp interval widths being judged.
+    static exact_ref quotient(double a, double b) {
+        exact_ref r;
+        r.hi = a / b;
+        r.lo = (b != 0.0) ? std::fma(-r.hi, b, a) / b : 0.0;
+        return r;
+    }
+
+    /// Sign of (hi + lo) - b: -1, 0, or +1. Exact for the magnitudes that arise
+    /// in containment checks (b within an ulp or so of hi), because two_sum is
+    /// exact and the residual terms are ~ulp(hi) next to a dominant s.
+    int compare(double b) const {
+        // Infinite bounds first: two_sum(hi, +/-inf) produces a NaN residual,
+        // which would make an unbounded enclosure look like a containment
+        // failure. An unbounded bound is trivially satisfied by any finite value,
+        // and interval arithmetic reaches one whenever a result overflows the
+        // format (e.g. 123.456/0.001 in cfloat<16,5>).
+        if (std::isinf(b)) return (b < 0.0) ? 1 : -1;
+        if (std::isnan(b)) return 0;                    // undecidable; do not claim a violation
+
+        double s, e;
+        two_sum(hi, -b, s, e);      // hi - b == s + e, exactly
+        double u, v;
+        two_sum(s, e + lo, u, v);   // (hi + lo) - b == u + v
+        if (u != 0.0) return (u < 0.0) ? -1 : 1;
+        if (v != 0.0) return (v < 0.0) ? -1 : 1;
+        return 0;
+    }
+
+    /// Nearest double. Use only for reporting -- never for comparisons.
+    double value() const { return hi + lo; }
+};
 
 // ---------------------------------------------------------------------------
 // Directed rounding on the reference/Scalar grid
@@ -88,19 +150,19 @@ Scalar round_up(Scalar x) {
 /// for an operation whose exact result is a point (any op on degenerate inputs,
 /// and every reduction over degenerate intervals).
 template <typename Interval>
-bool encloses(const Interval& iv, reference_t truth) {
-    const auto lo = static_cast<reference_t>(iv.lower());
-    const auto hi = static_cast<reference_t>(iv.upper());
-    return lo <= truth && truth <= hi;
+bool encloses(const Interval& iv, const exact_ref& truth) {
+    const auto lo = static_cast<double>(iv.lower());
+    const auto hi = static_cast<double>(iv.upper());
+    return truth.compare(lo) >= 0 && truth.compare(hi) <= 0;
 }
 
 /// Does the interval enclose an entire reference range [truth_lo, truth_hi]?
 /// Used when the inputs have real width, so the exact result is itself a range.
 template <typename Interval>
-bool encloses(const Interval& iv, reference_t truth_lo, reference_t truth_hi) {
-    const auto lo = static_cast<reference_t>(iv.lower());
-    const auto hi = static_cast<reference_t>(iv.upper());
-    return lo <= truth_lo && truth_hi <= hi;
+bool encloses(const Interval& iv, const exact_ref& truth_lo, const exact_ref& truth_hi) {
+    const auto lo = static_cast<double>(iv.lower());
+    const auto hi = static_cast<double>(iv.upper());
+    return truth_lo.compare(lo) >= 0 && truth_hi.compare(hi) <= 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -119,9 +181,9 @@ bool encloses(const Interval& iv, reference_t truth_lo, reference_t truth_hi) {
 /// because posit saturates to maxpos instead of overflowing to infinity, so a
 /// converted out-of-range posit still looks finite.
 template <typename Scalar>
-bool in_range(reference_t v) {
-    const auto mx = static_cast<reference_t>(std::numeric_limits<Scalar>::max());
-    return std::abs(v) <= mx;
+bool in_range(const exact_ref& v) {
+    const auto mx = static_cast<double>(std::numeric_limits<Scalar>::max());
+    return std::abs(v.value()) <= mx;
 }
 
 /// Width of the narrowest Scalar-representable interval enclosing [t_lo, t_hi].
@@ -129,12 +191,13 @@ bool in_range(reference_t v) {
 /// inexact endpoint. This is the best any implementation could do, so it is the
 /// denominator R is measured against.
 template <typename Scalar>
-double optimal_width(reference_t t_lo, reference_t t_hi) {
-    const auto s_lo = static_cast<Scalar>(t_lo);
-    const auto s_hi = static_cast<Scalar>(t_hi);
-    const Scalar lo = (static_cast<reference_t>(s_lo) <= t_lo) ? s_lo : round_down(s_lo);
-    const Scalar hi = (static_cast<reference_t>(s_hi) >= t_hi) ? s_hi : round_up(s_hi);
-    return static_cast<double>(static_cast<reference_t>(hi) - static_cast<reference_t>(lo));
+double optimal_width(const exact_ref& t_lo, const exact_ref& t_hi) {
+    auto s_lo = static_cast<Scalar>(t_lo.value());
+    auto s_hi = static_cast<Scalar>(t_hi.value());
+    // Step outward only where the rounded endpoint fell inside the true value.
+    if (t_lo.compare(static_cast<double>(s_lo)) < 0) s_lo = round_down(s_lo);
+    if (t_hi.compare(static_cast<double>(s_hi)) > 0) s_hi = round_up(s_hi);
+    return static_cast<double>(s_hi) - static_cast<double>(s_lo);
 }
 
 /// Overestimation ratio R = width(computed) / width(optimal).
@@ -151,14 +214,12 @@ double optimal_width(reference_t t_lo, reference_t t_hi) {
 /// Regularizing makes R == 1 there, keeps R monotone in the computed width, and
 /// preserves R >= 1 for every sound implementation.
 template <typename Interval, typename Scalar = typename Interval::value_type>
-double overestimation(const Interval& iv, reference_t t_lo, reference_t t_hi) {
-    const double w_computed = static_cast<double>(
-        static_cast<reference_t>(iv.upper()) - static_cast<reference_t>(iv.lower()));
+double overestimation(const Interval& iv, const exact_ref& t_lo, const exact_ref& t_hi) {
+    const double w_computed = static_cast<double>(iv.upper()) - static_cast<double>(iv.lower());
     const double w_optimal = optimal_width<Scalar>(t_lo, t_hi);
 
-    const auto s = static_cast<Scalar>(t_lo);
-    const double ulp = static_cast<double>(
-        static_cast<reference_t>(round_up(s)) - static_cast<reference_t>(s));
+    const auto s = static_cast<Scalar>(t_lo.value());
+    const double ulp = static_cast<double>(round_up(s)) - static_cast<double>(s);
     const double eps = (ulp > 0.0) ? ulp : std::numeric_limits<double>::min();
 
     // Not assessable when the truth is outside Scalar's range: the narrowest
@@ -172,18 +233,18 @@ double overestimation(const Interval& iv, reference_t t_lo, reference_t t_hi) {
 }
 
 template <typename Interval, typename Scalar = typename Interval::value_type>
-double overestimation(const Interval& iv, reference_t truth) {
+double overestimation(const Interval& iv, const exact_ref& truth) {
     return overestimation<Interval, Scalar>(iv, truth, truth);
 }
 
 /// Relative width w/|midpoint| -- the certified precision actually delivered.
 template <typename Interval>
 double relative_width(const Interval& iv) {
-    const auto lo = static_cast<reference_t>(iv.lower());
-    const auto hi = static_cast<reference_t>(iv.upper());
-    const reference_t mid = 0.5L * (lo + hi);
-    const reference_t denom = (mid != 0.0L) ? std::abs(mid) : 1.0L;
-    return static_cast<double>((hi - lo) / denom);
+    const auto lo = static_cast<double>(iv.lower());
+    const auto hi = static_cast<double>(iv.upper());
+    const double mid = 0.5 * (lo + hi);
+    const double denom = (mid != 0.0) ? std::abs(mid) : 1.0;
+    return (hi - lo) / denom;
 }
 
 /// Decimal digits the enclosure certifies.

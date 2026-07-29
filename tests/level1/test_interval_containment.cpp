@@ -48,7 +48,7 @@
 
 namespace {
 
-using sw::mp_blas::reference_t;
+using sw::mp_blas::exact_ref;
 using sw::mp_blas::regime;
 
 int failures = 0;
@@ -82,19 +82,21 @@ void scalar_ops(const std::string& name) {
         // otherwise the check would be testing Scalar's conversion error rather
         // than the interval arithmetic.
         const Scalar sa(pr[0]), sb(pr[1]);
-        const auto ra = static_cast<reference_t>(static_cast<double>(sa));
-        const auto rb = static_cast<reference_t>(static_cast<double>(sb));
-        if (ra == 0.0L || rb == 0.0L) continue;
+        const auto ra = static_cast<double>(sa);
+        const auto rb = static_cast<double>(sb);
+        if (ra == 0.0 || rb == 0.0) continue;
 
         const I a(sa), b(sb);
         const std::string tag = name + " (" + std::to_string(pr[0]) + ", " + std::to_string(pr[1]) + ")";
 
-        struct Op { const char* sym; I result; reference_t truth; };
+        // References via error-free transformations, so they carry ~106 bits on
+        // every platform rather than depending on long double's width.
+        struct Op { const char* sym; I result; exact_ref truth; };
         const Op ops[] = {
-            { "+", a + b, ra + rb },
-            { "-", a - b, ra - rb },
-            { "*", a * b, ra * rb },
-            { "/", a / b, ra / rb },
+            { "+", a + b, exact_ref::sum(ra, rb) },
+            { "-", a - b, exact_ref::difference(ra, rb) },
+            { "*", a * b, exact_ref::product(ra, rb) },
+            { "/", a / b, exact_ref::quotient(ra, rb) },
         };
 
         for (const auto& op : ops) {
@@ -102,7 +104,7 @@ void scalar_ops(const std::string& name) {
                   tag + " op " + op.sym + ": enclosure [" +
                       std::to_string(static_cast<double>(op.result.lower())) + ", " +
                       std::to_string(static_cast<double>(op.result.upper())) +
-                      "] does not contain " + std::to_string(static_cast<double>(op.truth)));
+                      "] does not contain " + std::to_string(op.truth.value()));
 
             // R < 1 is impossible for a sound implementation -- it would mean the
             // interval is narrower than the tightest correct enclosure. Skipped
@@ -138,7 +140,7 @@ void reduction_degenerate(const std::string& name, regime r, double param, const
         a[i] = I(sx);
         b[i] = I(sy);
     }
-    const auto truth = static_cast<reference_t>(sw::mp_blas::dot2(xd, yd));
+    const auto truth = exact_ref::from(sw::mp_blas::dot2(xd, yd));
 
     const I d = mtl::dot(a, b);
     const std::string tag = name + "/" + label;
@@ -146,7 +148,7 @@ void reduction_degenerate(const std::string& name, regime r, double param, const
     check(sw::mp_blas::encloses(d, truth),
           tag + ": dot enclosure [" + std::to_string(static_cast<double>(d.lower())) + ", " +
               std::to_string(static_cast<double>(d.upper())) + "] does not contain Dot2 reference " +
-              std::to_string(static_cast<double>(truth)));
+              std::to_string(truth.value()));
 
     // Tightness guard: containment alone is satisfiable by [-inf, inf], so the
     // enclosure must also stay useful. The bound has to be TYPE-AWARE -- naive
@@ -201,10 +203,10 @@ void reduction_with_width(const std::string& name) {
             px[i] = xlo[i] + t * (xhi[i] - xlo[i]);
             py[i] = ylo[i] + (1.0 - t) * (yhi[i] - ylo[i]);
         }
-        const auto truth = static_cast<reference_t>(sw::mp_blas::dot2(px, py));
+        const auto truth = exact_ref::from(sw::mp_blas::dot2(px, py));
         check(sw::mp_blas::encloses(d, truth),
               name + "/width: dot enclosure does not contain sampled interior dot (sample " +
-                  std::to_string(k) + ", value " + std::to_string(static_cast<double>(truth)) + ")");
+                  std::to_string(k) + ", value " + std::to_string(truth.value()) + ")");
     }
 }
 
@@ -221,7 +223,7 @@ int main() {
         using I = interval<double>;
         const double a = 0.1;
         const I p = I(a) * I(a);
-        const auto truth = static_cast<reference_t>(a) * static_cast<reference_t>(a);
+        const auto truth = exact_ref::product(a, a);
 
         check(sw::mp_blas::encloses(p, truth),
               "universal#1234 regression: interval(0.1)*interval(0.1) does not enclose the exact product");
@@ -247,7 +249,11 @@ int main() {
     {
         using I = interval<double>;
         const double a = 0.1;
-        const auto truth = static_cast<reference_t>(a) * static_cast<reference_t>(a);
+        const auto truth = exact_ref::product(a, a);
+        // Portability guard: the whole control depends on this product being
+        // inexact. If it were exact, [p,p] would legitimately enclose it.
+        check(truth.lo != 0.0,
+              "negative control: 0.1*0.1 came out exact, so the control cannot test anything");
 
         const I unsound(a * a, a * a);   // pre-#1234: round-to-nearest, zero width
         check(!sw::mp_blas::encloses(unsound, truth),
