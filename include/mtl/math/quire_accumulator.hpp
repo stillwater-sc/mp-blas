@@ -34,10 +34,10 @@
 //                        preferring quire_resolve keeps the exact-dot-product
 //                        promise for element types wider than double.
 //
-// Universal's aggregator headers (cfloat.hpp / lns.hpp / fixpnt.hpp / dbns.hpp)
-// do NOT pull in their own fdp.hpp the way posit.hpp does, so quire_mul /
-// quire_resolve are otherwise unavailable -- we include the fdp headers
-// explicitly below (stillwater-sc/universal#1201).
+// The quire-capable aggregator headers (posit.hpp / cfloat.hpp / lns.hpp /
+// fixpnt.hpp) now pull in their own fdp.hpp, so quire_mul / quire_resolve are
+// reachable from the number-system header alone -- no explicit fdp.hpp include
+// needed (stillwater-sc/universal#1201, #1244, #1245).
 //
 // NOT wired up:
 //   - integer, native (float/double): Universal has no fdp.hpp (no quire_mul /
@@ -62,14 +62,10 @@
 
 #include <type_traits>  // std::is_same_v
 
-#include <universal/number/posit/posit.hpp>
-#include <universal/number/posit/fdp.hpp>     // quire_mul/quire_resolve (posit.hpp already pulls this)
-#include <universal/number/cfloat/cfloat.hpp>
-#include <universal/number/cfloat/fdp.hpp>    // NOT pulled by cfloat.hpp
-#include <universal/number/lns/lns.hpp>
-#include <universal/number/lns/fdp.hpp>       // NOT pulled by lns.hpp
-#include <universal/number/fixpnt/fixpnt.hpp>
-#include <universal/number/fixpnt/fdp.hpp>    // NOT pulled by fixpnt.hpp
+#include <universal/number/posit/posit.hpp>     // aggregator pulls posit/fdp.hpp (quire_mul/quire_resolve)
+#include <universal/number/cfloat/cfloat.hpp>   // aggregator pulls cfloat/fdp.hpp
+#include <universal/number/lns/lns.hpp>         // aggregator pulls lns/fdp.hpp
+#include <universal/number/fixpnt/fixpnt.hpp>   // aggregator pulls fixpnt/fdp.hpp
 
 #include <mtl/math/accumulator_traits.hpp>
 
