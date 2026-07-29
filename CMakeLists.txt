@@ -36,6 +36,46 @@ target_include_directories(${PROJECT_NAME} INTERFACE
 # checkouts can be used without network via, e.g.:
 #   -DFETCHCONTENT_SOURCE_DIR_UNIVERSAL=/path/to/universal
 #   -DFETCHCONTENT_SOURCE_DIR_MTL5=/path/to/mtl5
+#
+# ---------------------------------------------------------------------------
+# On third-party warnings: why these are plain INTERFACE and not SYSTEM
+# ---------------------------------------------------------------------------
+# The dependency include directories below are added with a plain
+#
+#     target_include_directories(<tgt> INTERFACE <dir>)
+#
+# CMake also accepts a SYSTEM keyword there:
+#
+#     target_include_directories(<tgt> SYSTEM INTERFACE <dir>)
+#
+# which marks the directory as a *system* include path (-isystem on GCC/Clang,
+# /external:I on MSVC). Compilers suppress warnings originating in headers found
+# under a system path, so SYSTEM makes third-party diagnostics disappear from our
+# build log while leaving warnings in mp-blas's own sources untouched. That is the
+# conventional treatment for dependencies you do not control, and it is what you
+# would normally reach for when a header-only dependency floods the log.
+#
+# We deliberately do NOT do that yet.
+#
+# Universal and MTL5 are sister projects, not opaque vendor code -- we can fix
+# them. Because they are header-only, every warning in their headers is re-emitted
+# in every consumer, once per template instantiation: mp-blas currently sees ~759
+# warning emissions from Universal from only ~28 unique source sites. Keeping them
+# VISIBLE is what lets us drive that inventory down, and it has already paid for
+# itself twice -- an implicit narrowing that was actually WRONG hid among the
+# merely noisy ones both times:
+#   - stillwater-sc/universal#1259 -- posit::to_native<Real> narrowed each factor
+#     before forming the product, so posit<32,5>/posit<64,5> -> float flushed
+#     representable subnormals to zero.
+#   - stillwater-sc/universal#1262 -- setFields(long double)'s fraction mask is a
+#     no-op against a 63-bit bitfield.
+# Suppressing the category would have hidden both. Tracked under the
+# warning-clean Epic stillwater-sc/universal#1265.
+#
+# Once that Epic closes, switch the four calls below to `SYSTEM INTERFACE` so
+# residual upstream noise stays out of the log without silencing mp-blas's own
+# diagnostics. Until then the noise is the worklist.
+# ---------------------------------------------------------------------------
 include(FetchContent)
 
 # Universal number arithmetic library (header-only)
@@ -58,6 +98,7 @@ else()
 	# Universal headers use two include conventions:
 	#   - External: #include <sw/universal/...>  (needs include/)
 	#   - Internal: #include <universal/...>     (needs include/sw/)
+	# Plain INTERFACE (not SYSTEM) on purpose -- see the note above FetchContent.
 	target_include_directories(${PROJECT_NAME} INTERFACE
 		$<BUILD_INTERFACE:${universal_SOURCE_DIR}/include>
 		$<BUILD_INTERFACE:${universal_SOURCE_DIR}/include/sw>)
@@ -80,6 +121,7 @@ else()
 	if(NOT mtl5_POPULATED)
 		FetchContent_Populate(mtl5)
 	endif()
+	# Plain INTERFACE (not SYSTEM) on purpose -- see the note above FetchContent.
 	target_include_directories(${PROJECT_NAME} INTERFACE
 		$<BUILD_INTERFACE:${mtl5_SOURCE_DIR}/include>)
 endif()
