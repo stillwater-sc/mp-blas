@@ -15,3 +15,8 @@ mpblas_add_test(test_qsnr)
 # (cond, D, rho, n_eff, beta), the Wilkinson/Higham error bound it implies, and
 # the order-independence of exact quire accumulation.
 mpblas_add_test(test_dot_characterization)
+
+# Interval BLAS containment gate (issue #12, Phase 0). Guards the Fundamental
+# Theorem of Interval Arithmetic across element types and operators. Every width
+# measurement in issue #12's later phases is meaningless unless this is green.
+mpblas_add_test(test_interval_containment)
