@@ -33,3 +33,7 @@ add_subdirectory(level2/interval_matvec_study)
 # Interval BLAS Phase 3 (issue #12): the wrapping effect under repeated plane
 # rotations -- where exact accumulation is predicted to stop helping.
 add_subdirectory(level1/interval_rot_study)
+
+# Interval BLAS Phase 4 (issue #12): gemm at level 3, plus the rank-k experiment
+# -- does re-expressing k ger calls as one gemm dissolve Phase 2's interface limit?
+add_subdirectory(level3/interval_matmul_study)

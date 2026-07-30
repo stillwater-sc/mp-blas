@@ -220,8 +220,32 @@
   (repeated `ger` / `trsv`, fixable by re-expressing the operation), and
   **wrapping** (`rot`, representational, no fix). Only where the obstacle is
   ACCUMULATION does the quire win -- and there it wins completely.
-- [ ] Phases 4-5: L3 `gemm` (including rank-k updates as the structural remedy
-  for the repeated-`ger` finding), and residual-based verified `solve`.
+- [x] **Phase 4 `gemm` + rank-k** -- `applications/level3/interval_matmul_study`
+  + `tests/level3/test_interval_gemm`.
+
+  **Headline findings.** (1) `gemm` reproduces Phase 1 element-wise: quire at
+  15.4-15.6 certified digits regardless of conditioning, while naive reaches
+  **-7.6 digits** on `kahan` (an enclosure ~1e7x wider than the value it
+  encloses). No level-3-specific effect, which is the desired outcome. (2) **The
+  interface limit is genuinely fixable, and the fix needs BOTH halves.**
+  Re-expressing k rank-1 updates as one `gemm` (`A += X*Y^T`) exposes the
+  accumulator seam that a sequence of `ger` calls cannot -- but re-expression
+  ALONE does nothing: naive `gemm` degrades with k exactly as repeated `ger` does
+  (x98 vs x67). It is re-expression *plus* exact accumulation that makes the
+  width flat (x0.96 over a 256x increase in k), with the gap reaching 7e+09.
+
+  So of the three obstacles found in Phases 1-4, exactly one is an artifact of
+  how the computation was *written* rather than what it *is*, and that one
+  dissolves once the reduction is made visible to the accumulator:
+
+  | limit | example | exact accumulator helps? |
+  |---|---|---|
+  | dependency | `nrm2` = `sqrt(dot(x,x))` | **No** -- mathematical |
+  | interface | repeated `ger`, `trsv` | **Yes, after re-expressing** |
+  | wrapping | repeated `rot` | **No** -- representational |
+- [ ] Phase 5: residual-based verified `solve` -- naive interval elimination is
+  expected to blow up; the real method is Krawczyk/Rump verification of an
+  approximate solution, whose residual is exactly what Kulisch wanted the EDP for.
 
 ## Related
 
