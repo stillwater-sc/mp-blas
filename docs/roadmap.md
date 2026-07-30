@@ -145,6 +145,44 @@
   OpenBLAS/MKL reference runs where available); reproducible one-command
   sweeps written up under `docs/`.
 
+## Milestone 4: interval BLAS -- verified enclosures (issue #12)
+
+- [x] **Phase 0** -- containment gate. `include/sw/mp_blas/interval_containment.hpp`
+  (`encloses`, overestimation `R`, `in_range`, `absolute_width`) +
+  `tests/level1/test_interval_containment.cpp`, with a negative control that
+  asserts the gate can actually fail. Surfaced two upstream bugs
+  (stillwater-sc/universal#1234 outward rounding, since fixed) and two
+  portability lessons: `long double` is not a usable reference (64-bit on ARM64
+  and MSVC, so the gate went blind on macOS), and `relative_width` is meaningless
+  for enclosures bracketing zero.
+- [x] **Phase 1 `dot`** -- interval quire accumulator
+  (`include/mtl/math/interval_quire_accumulator.hpp`): a quire per endpoint,
+  exact accumulation, ONE outward rounding. Study:
+  `applications/level1/interval_dot_study`; hypotheses pinned by
+  `tests/level1/test_interval_quire.cpp`. Write-up:
+  [docs/interval-blas-study.md](interval-blas-study.md).
+
+  **Headline findings.** (1) The quire enclosure is `4.1e-16`-`4.3e-16` across
+  *every* regime and length -- `cond` spanning **19 decades** and `n` spanning
+  64-4096 -- certifying 15.4-15.7 digits throughout; it is the same number at
+  every length, to every printed digit. (2) Naive interval accumulation degrades
+  on both axes and certifies **negative digits** (an enclosure wider than its own
+  midpoint) from `cancel 1e-3` onward -- rigorous, correct, worthless. (3) A
+  promoted `double` interval accumulator fails at `cond ~ 1/u_double ~ 1e16`, the
+  **same threshold issue #9 found for accuracy**, so the accuracy and enclosure
+  stories land on one constant. (4) On `kahan 1e-6 / n=4096` naive and promoted
+  both prove *nothing* while the quire proves 15.4 digits -- Kulisch's claim,
+  measured.
+- [ ] **Phase 1 `nrm2`** -- blocked on a structural issue, not on effort:
+  `sqrt(dot(x,x))` hands the same interval to both arguments, so for a
+  zero-straddling element it computes `X*X` (lower endpoint `a*b < 0`) instead of
+  `X^2 = [0, max(a^2,b^2)]`. That is the dependency problem; **no accumulator
+  fixes it**, and an exact quire will faithfully accumulate the over-wide corner
+  products. Needs a dedicated squaring accumulation. First place in this work
+  where the EDP provably cannot help.
+- [ ] Phases 2-5: L2 (`ger`, `gemv`), repeated `rot` (wrapping), L3 `gemm`,
+  and residual-based verified `solve`.
+
 ## Related
 
 - MTL5 mixed-precision `dot`/`mult` accumulator seam

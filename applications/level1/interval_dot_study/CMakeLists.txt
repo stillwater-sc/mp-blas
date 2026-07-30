@@ -1,0 +1,2 @@
+add_executable(interval_dot_study interval_dot_study.cpp)
+target_link_libraries(interval_dot_study PRIVATE sw::mp_blas)

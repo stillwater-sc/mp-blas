@@ -21,3 +21,7 @@ add_subdirectory(level1/quantization_qsnr)
 # Dot-product characterization: structural features (cond, D, rho, n_eff, beta)
 # of an inner product vs the accumulation error and reproducibility they predict.
 add_subdirectory(level1/dot_characterization)
+
+# Interval BLAS Phase 1 (issue #12): what a dot product can PROVE. Naive vs
+# promoted vs exact interval-quire enclosure width across the issue-9 regimes.
+add_subdirectory(level1/interval_dot_study)
