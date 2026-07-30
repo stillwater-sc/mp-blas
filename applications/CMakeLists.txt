@@ -25,3 +25,7 @@ add_subdirectory(level1/dot_characterization)
 # Interval BLAS Phase 1 (issue #12): what a dot product can PROVE. Naive vs
 # promoted vs exact interval-quire enclosure width across the issue-9 regimes.
 add_subdirectory(level1/interval_dot_study)
+
+# Interval BLAS Phase 2 (issue #12): ger as the reduction-free control, gemv as
+# Phase 1 row-wise -- separates interval multiplication from accumulation.
+add_subdirectory(level2/interval_matvec_study)
