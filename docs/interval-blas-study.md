@@ -13,8 +13,8 @@ correction effective, which is what yields results with machine-proved bounds �
 and then measured only accuracy and reproducibility. Interval arithmetic is the
 consumer of that guarantee, and this is where it gets measured.
 
-**Status: Phase 0 and Phase 1 (`dot`) complete.** Phase 1's `nrm2` is open, for a
-reason worth reading (§5). Phases 2–5 are unstarted.
+**Status: Phase 0, Phase 1 (`dot`) and Phase 2 (`ger`, `gemv`) complete.** Phase 1's
+`nrm2` is open, for a reason worth reading (§7). Phases 3–5 are unstarted.
 
 ---
 
@@ -201,7 +201,109 @@ length**, to every printed digit.
 
 ---
 
-## 6. Open: why `nrm2` is not just `dot(x,x)`
+## 6. Measurements: level 2 — `ger` and `gemv`
+
+```bash
+./build/applications/level2/interval_matvec_study/interval_matvec_study [nmax]
+```
+
+Phase 1 showed exact accumulation collapses the enclosure width. Phase 2 asks
+**which half of the arithmetic that win came from** — accumulation or
+multiplication — by measuring the two level-2 operators that separate them. gcc
+and clang produce byte-identical output.
+
+### 6.1 `ger`, the control
+
+`ger` computes `A += alpha·x·yᵀ`: one multiply-add per element and **no reduction
+at all**. MTL5's `ger` accordingly has no `Accumulator` parameter, and that is
+correct rather than an omission — there is nothing to accumulate.
+
+`interval<posit<32,2>>`, worst element over the whole matrix:
+
+| n | max abs width | max R |
+|---:|---:|---:|
+| 4 | 2.24e-08 | 4.50 |
+| 16 | 2.24e-08 | 4.50 |
+| 64 | 2.24e-08 | 4.50 |
+| 256 | 2.24e-08 | 4.50 |
+
+Identical to every digit, at every size. Interval multiplication contributes a
+**fixed, small, problem-size-independent** width, within 4.5× of the narrowest
+possible enclosure for a multiply-add.
+
+That is the control result, and it settles the attribution: **Phase 1's win came
+from removing accumulation rounding, not from anything about products.** Had this
+column grown with `n`, the Phase 1 story would have needed rewriting.
+
+### 6.2 Repeated `ger`: a reduction with nowhere to put an accumulator
+
+A single `ger` has no reduction — but `k` successive rank-1 updates put `k`
+products into every element of `A`. That *is* a reduction, spread across calls,
+and MTL5's per-call interface has nowhere to hold an accumulator across them:
+
+| k | 1 | 4 | 16 | 64 | 256 |
+|---|---|---|---|---|---|
+| max abs width | 2.24e-08 | 1.04e-07 | 4.62e-07 | 3.31e-06 | 2.57e-05 |
+| vs k=1 | 1.0 | 4.7 | 20.7 | 148 | **1152** |
+
+The width grows roughly linearly in `k` and **no accumulator seam reaches it**.
+This is the same shape as the `trsv` limitation already noted in the roadmap: the
+operator's interface, not its arithmetic, is what forecloses the fix. The
+structural remedy is to express a rank-`k` update as a single `gemm`
+(`A += X·Yᵀ`), which *does* expose the seam — i.e. it becomes a Phase 4 question.
+
+### 6.3 `gemv`
+
+`y = A x` is `ger`'s per-element widening plus one reduction per output row, and
+`mult()`'s `Accumulator` seam takes the interval quire directly. Worst row
+reported; all strategies deliver `interval<double>`.
+
+`interval<posit<32,2>>`:
+
+| regime | n | cond | naive | **quire** | dig(nv) | **dig(qr)** |
+|---|---:|---:|---:|---:|---:|---:|
+| uniform | 128 | 3.7e+01 | 1.5e-06 | **2.7e-16** | 5.8 | **15.6** |
+| graded | 128 | 8.6e+00 | 4.4e-05 | **2.7e-16** | 4.4 | **15.6** |
+| cancel 1e-3 | 128 | 6.1e+04 | 3.7e-03 | **4.3e-16** | 2.4 | **15.4** |
+| cancel 1e-9 | 128 | 6.1e+10 | 6.1e+01 | **4.1e-16** | −1.8 | **15.4** |
+| kahan 1e-6 | 16 | 7.9e+17 | 1.9e+07 | **4.2e-16** | **−7.3** | **15.4** |
+| kahan 1e-6 | 128 | 1.1e+18 | 2.7e+02 | **4.2e-16** | −2.4 | **15.4** |
+
+`interval<cfloat<32,8>>` behaves the same. `R(quire) = 3.0` throughout, exactly as
+in Phase 1.
+
+Phase 1 reproduces row-wise with no surprises — which is the expected and desired
+outcome for `gemv`, since each output element *is* a dot product. The worst naive
+case in the whole study appears here: `kahan / n=16` certifies **−7.3 digits**, an
+enclosure ~10⁷× wider than the value it encloses, while the quire certifies 15.4.
+
+---
+
+## 7. Findings, level 2
+
+7. **The attribution holds: the win is accumulation, not multiplication.** Single
+   `ger` width is `2.24e-08` at n = 4, 16, 64 and 256 — identical to every digit —
+   with `R` pinned at 4.50. Interval multiplication is well-behaved and
+   size-independent; all of Phase 1's degradation lived in the reduction. This is
+   the control that licenses the Phase 1 story.
+
+8. **`gemv` is Phase 1, row-wise, with nothing new** — quire flat at
+   `4.1e-16`–`4.3e-16` and `R = 3.0` across `cond` spanning 17 decades, naive
+   crossing into negative certified digits. Worth stating plainly *because* it is
+   unsurprising: each output element is a dot product, so a level-2 result that
+   differed from level 1 would have indicated a bug in the seam rather than a
+   discovery.
+
+9. **A reduction can hide in an operator that has no reduction.** Repeated `ger`
+   accumulates across *calls*, so its width grows ~linearly in the number of
+   updates (1152× at k=256) and no per-call accumulator seam can reach it. The
+   remedy is structural — re-express rank-`k` as one `gemm` — not arithmetic. Same
+   shape as the `trsv` seam limitation: what forecloses the fix is the operator's
+   interface, not its arithmetic.
+
+---
+
+## 8. Open: why `nrm2` is not just `dot(x,x)`
 
 Phase 1 lists `nrm2` alongside `dot`. It is not done, and the reason is a genuine
 finding rather than a scheduling note.
@@ -221,7 +323,8 @@ knows both factors are the same interval, not a reuse of `dot`. It also needs an
 
 That makes `nrm2` the first place in this line of work where the exact dot product
 provably *cannot* help — which is worth having measured, since it bounds what the
-EDP can be claimed to do. Phase 3 (`rot`, wrapping) is expected to be the second.
+EDP can be claimed to do. Phase 3 (`rot`, wrapping) is expected to be the second — and finding 9 above is a
+third kind of limit: not the arithmetic, but the operator interface.
 
 ---
 

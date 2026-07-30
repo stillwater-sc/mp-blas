@@ -180,8 +180,25 @@
   fixes it**, and an exact quire will faithfully accumulate the over-wide corner
   products. Needs a dedicated squaring accumulation. First place in this work
   where the EDP provably cannot help.
-- [ ] Phases 2-5: L2 (`ger`, `gemv`), repeated `rot` (wrapping), L3 `gemm`,
-  and residual-based verified `solve`.
+- [x] **Phase 2 `ger` + `gemv`** -- separates interval multiplication from interval
+  accumulation, so Phase 1's win can be attributed.
+  `applications/level2/interval_matvec_study` + `tests/level2/test_interval_l2`.
+
+  **Headline findings.** (1) **The control settles the attribution:** a single
+  `ger` (one multiply-add per element, no reduction) has width `2.24e-08` at
+  n = 4/16/64/256 -- identical to every digit -- with `R` pinned at 4.50. Interval
+  multiplication is size-independent and well-behaved, so all of Phase 1's
+  degradation lived in the reduction. (2) `gemv` reproduces Phase 1 row-wise with
+  nothing new (quire flat at ~4e-16, `R = 3.0`, naive into negative certified
+  digits) -- worth stating precisely *because* it is unsurprising: a level-2 result
+  differing from level 1 would have meant a broken seam, not a discovery. (3) **A
+  reduction can hide in an operator that has no reduction:** `k` successive rank-1
+  updates accumulate across *calls*, so width grows ~linearly in `k` (1152x at
+  k=256) and **no per-call accumulator seam reaches it**. The remedy is structural
+  -- re-express rank-`k` as one `gemm` -- not arithmetic. Same shape as the `trsv`
+  seam limitation: the operator interface forecloses the fix, not its arithmetic.
+- [ ] Phases 3-5: repeated `rot` (wrapping), L3 `gemm` (including rank-k updates
+  per finding 3 above), and residual-based verified `solve`.
 
 ## Related
 

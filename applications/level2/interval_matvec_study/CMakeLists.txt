@@ -1,0 +1,2 @@
+add_executable(interval_matvec_study interval_matvec_study.cpp)
+target_link_libraries(interval_matvec_study PRIVATE sw::mp_blas)
