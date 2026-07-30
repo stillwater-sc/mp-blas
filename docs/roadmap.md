@@ -197,8 +197,31 @@
   k=256) and **no per-call accumulator seam reaches it**. The remedy is structural
   -- re-express rank-`k` as one `gemm` -- not arithmetic. Same shape as the `trsv`
   seam limitation: the operator interface forecloses the fix, not its arithmetic.
-- [ ] Phases 3-5: repeated `rot` (wrapping), L3 `gemm` (including rank-k updates
-  per finding 3 above), and residual-based verified `solve`.
+- [x] **Phase 3 `rot` (wrapping)** -- deliberately hunting for where exact
+  accumulation STOPS helping. `include/sw/mp_blas/interval_rot.hpp` +
+  `applications/level1/interval_rot_study` + `tests/level1/test_interval_rot`.
+
+  **Headline findings.** (1) **The predicted negative result holds:** an exact
+  accumulator changes the CONSTANT, not the RATE. Naive and quire growth rates
+  agree to 3-4 significant figures at every angle and element type (1.4478 vs
+  1.4472 at 45 deg), while the quire's benefit is a flat ~2x at every k.
+  (2) The mechanism is confirmed geometric: measured per-step growth matches
+  `|c|+|s|` to within 2% across angles, and at `|c|+|s| = 1` the width stays
+  bounded (1.8e-06 after 64 steps) where at 1.414 it reaches 2.0e+02 -- same code,
+  same element type, only the angle differs. Not "intervals always blow up" but a
+  specific, predictable, angle-dependent effect. (3) Two independent reasons the
+  quire cannot help: the reduction is only 2 terms long, AND the loss is
+  representational rather than arithmetic. This is the clean counterexample to
+  "the exact dot product makes interval arithmetic work" -- it makes REDUCTIONS
+  work, which is narrower and more defensible.
+
+  Phases 1-3 have now produced three structurally different obstacles, worth
+  keeping apart: **dependency** (`nrm2`, mathematical, no fix), **interface**
+  (repeated `ger` / `trsv`, fixable by re-expressing the operation), and
+  **wrapping** (`rot`, representational, no fix). Only where the obstacle is
+  ACCUMULATION does the quire win -- and there it wins completely.
+- [ ] Phases 4-5: L3 `gemm` (including rank-k updates as the structural remedy
+  for the repeated-`ger` finding), and residual-based verified `solve`.
 
 ## Related
 

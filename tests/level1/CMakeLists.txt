@@ -25,3 +25,8 @@ mpblas_add_test(test_interval_containment)
 # naive interval width grows with n and cond, exact quire accumulation is flat in
 # both. Depends on test_interval_containment staying green (correctness first).
 mpblas_add_test(test_interval_quire)
+
+# Interval rot and wrapping (issue #12, Phase 3). Pins a NEGATIVE result: exact
+# accumulation changes the constant but not the geometric growth RATE, because
+# wrapping is a loss in the representation rather than in the arithmetic.
+mpblas_add_test(test_interval_rot)

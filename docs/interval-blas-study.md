@@ -13,8 +13,9 @@ correction effective, which is what yields results with machine-proved bounds �
 and then measured only accuracy and reproducibility. Interval arithmetic is the
 consumer of that guarantee, and this is where it gets measured.
 
-**Status: Phase 0, Phase 1 (`dot`) and Phase 2 (`ger`, `gemv`) complete.** Phase 1's
-`nrm2` is open, for a reason worth reading (§7). Phases 3–5 are unstarted.
+**Status: Phases 0–3 complete** (containment gate; `dot`; `ger`/`gemv`; `rot` and
+wrapping). Phase 1's `nrm2` is open, for a reason worth reading (§10). Phases 4–5
+are unstarted.
 
 ---
 
@@ -303,7 +304,112 @@ enclosure ~10⁷× wider than the value it encloses, while the quire certifies 1
 
 ---
 
-## 8. Open: why `nrm2` is not just `dot(x,x)`
+## 8. Measurements: `rot` and the wrapping effect
+
+```bash
+./build/applications/level1/interval_rot_study/interval_rot_study [kmax]
+```
+
+Phases 1 and 2 showed exact accumulation collapses a reduction's enclosure width,
+and that the win came from accumulation rather than multiplication. This phase
+went looking for where that **stops** being true. `rot` was the predicted place,
+on two independent grounds:
+
+1. the reduction is length **two**, so there is almost no accumulation error for
+   an exact accumulator to remove;
+2. the dominant error is **wrapping** — a rotation maps an axis-aligned box to a
+   tilted one, and storing the result as an interval pair takes the axis-aligned
+   hull. That is a loss in the *representation*, not the arithmetic, and it
+   compounds geometrically.
+
+Confirming a predicted negative is what bounds the claims made in Phases 1–2, so
+it was measured rather than asserted. gcc and clang agree byte-for-byte.
+
+### 8.1 One rotation: the multiplier is geometry
+
+A box of width `w` rotated by θ has an axis-aligned hull of width
+`w·(|cos θ| + |sin θ|)`:
+
+| θ | 0° | 5° | 15° | 30° | 45° | 60° | 75° | 90° |
+|---|---|---|---|---|---|---|---|---|
+| `\|c\|+\|s\|` | 1.0000 | 1.0834 | 1.2247 | 1.3660 | 1.4142 | 1.3660 | 1.2247 | 1.0000 |
+| measured | 1.0112 | 1.0896 | 1.2332 | 1.3750 | 1.4291 | 1.3769 | 1.2351 | 1.0168 |
+
+Agreement within 2% at every angle, including the endpoints where the rotation
+maps axes to axes and there is no wrapping at all.
+
+### 8.2 Repeated rotation: does an exact accumulator change the rate?
+
+64 rotations from a point start, `interval<posit<32,2>>`, θ = 45°:
+
+| k | naive w | quire w | nv/qr | naive rate | quire rate | predicted |
+|---:|---:|---:|---:|---:|---:|---:|
+| 1 | 1.49e-08 | 7.45e-09 | 2.00 | — | — | — |
+| 8 | 7.00e-07 | 3.43e-07 | 2.04 | 1.7333 | 1.7280 | 1.4142 |
+| 16 | 1.18e-05 | 5.74e-06 | 2.06 | 1.5603 | 1.5575 | 1.4142 |
+| 32 | 3.03e-03 | 1.47e-03 | 2.06 | 1.4833 | 1.4820 | 1.4142 |
+| 64 | 1.98e+02 | 9.66e+01 | 2.06 | **1.4478** | **1.4472** | **1.4142** |
+
+The rate estimates start high and descend toward `|c|+|s|` because they are
+measured from `k=1`, so the early steps still carry the rounding seed; the
+asymptote is the wrapping factor.
+
+Same shape at θ = 5° (rates 1.1249 vs 1.1252 against a prediction of 1.0834) and
+for `interval<cfloat<32,8>>` (1.4478 vs 1.4455).
+
+### 8.3 The angle decides, not the arithmetic
+
+Identical arithmetic, identical 64 steps, `interval<posit<32,2>>`:
+
+| θ | `\|c\|+\|s\|` | final width | mechanism |
+|---|---|---|---|
+| 90° | 1.000 | **1.8e-06** | bounded — rounding only |
+| 45° | 1.414 | **2.0e+02** | geometric — wrapping |
+
+Eight orders of magnitude apart, decided purely by the angle.
+
+---
+
+## 9. Findings: `rot`
+
+10. **The predicted negative result holds: an exact accumulator changes the
+    constant, not the rate.** Naive and quire growth rates agree to 3–4
+    significant figures at every angle and element type (1.4478 vs 1.4472 at 45°;
+    1.1249 vs 1.1252 at 5°), while the quire's benefit is a flat ~2× at every `k`.
+    Wrapping is a loss in the representation, and no accumulator reaches it.
+
+11. **The mechanism is confirmed as geometric, not arithmetic.** The measured
+    per-step growth matches `|c| + |s|` to within 2% for a single rotation, and
+    the repeated-rotation rate converges to the same constant from above. At
+    `|c|+|s| = 1` the width stays bounded over 64 steps while at `|c|+|s| = 1.414`
+    it grows by 10 orders of magnitude — same code, same element type, only the
+    angle differs. So this is not "intervals always blow up"; it is a specific,
+    predictable, angle-dependent effect.
+
+12. **Two independent reasons the quire cannot help here**, and it is worth
+    keeping them apart. The reduction is only 2 terms long, so there is nearly
+    nothing to accumulate exactly; *and* the error is representational rather than
+    arithmetic. Either alone would sink it. This is the clean counterexample to
+    "the exact dot product makes interval arithmetic work" — it makes *reductions*
+    work, which is a narrower and more defensible claim.
+
+### The three kinds of limit
+
+Phases 1–3 have now produced three structurally different obstacles, and
+conflating them would overstate what the exact dot product does:
+
+| limit | example | can an exact accumulator help? |
+|---|---|---|
+| **dependency** | `nrm2` as `sqrt(dot(x,x))` (§10) | **No** — mathematical |
+| **interface** | repeated `ger`, `trsv` (§7) | Not as written; fixable by re-expressing the operation |
+| **wrapping** | repeated `rot` (§9) | **No** — representational |
+
+Only where the obstacle is *accumulation* does the quire win — and there it wins
+completely (§5).
+
+---
+
+## 10. Open: why `nrm2` is not just `dot(x,x)`
 
 Phase 1 lists `nrm2` alongside `dot`. It is not done, and the reason is a genuine
 finding rather than a scheduling note.
@@ -323,8 +429,8 @@ knows both factors are the same interval, not a reuse of `dot`. It also needs an
 
 That makes `nrm2` the first place in this line of work where the exact dot product
 provably *cannot* help — which is worth having measured, since it bounds what the
-EDP can be claimed to do. Phase 3 (`rot`, wrapping) is expected to be the second — and finding 9 above is a
-third kind of limit: not the arithmetic, but the operator interface.
+EDP can be claimed to do. Phase 3 (§9) confirmed the second, and finding 9 is a third: not the arithmetic,
+but the operator interface. See the table at the end of §9.
 
 ---
 
