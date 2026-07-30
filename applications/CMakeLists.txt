@@ -29,3 +29,7 @@ add_subdirectory(level1/interval_dot_study)
 # Interval BLAS Phase 2 (issue #12): ger as the reduction-free control, gemv as
 # Phase 1 row-wise -- separates interval multiplication from accumulation.
 add_subdirectory(level2/interval_matvec_study)
+
+# Interval BLAS Phase 3 (issue #12): the wrapping effect under repeated plane
+# rotations -- where exact accumulation is predicted to stop helping.
+add_subdirectory(level1/interval_rot_study)
