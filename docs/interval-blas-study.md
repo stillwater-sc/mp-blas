@@ -13,9 +13,9 @@ correction effective, which is what yields results with machine-proved bounds �
 and then measured only accuracy and reproducibility. Interval arithmetic is the
 consumer of that guarantee, and this is where it gets measured.
 
-**Status: Phases 0–4 complete** (containment gate; `dot`; `ger`/`gemv`; `rot` and
-wrapping; `gemm` and the rank-k update). Phase 1's `nrm2` is open, for a reason
-worth reading (§12). Phase 5 (`solve`) is unstarted.
+**Status: all phases complete** (containment gate; `dot`; `ger`/`gemv`; `rot` and
+wrapping; `gemm` and rank-k; verified solve). Phase 1's `nrm2` remains open, for a
+reason worth reading (§14).
 
 ---
 
@@ -496,7 +496,106 @@ stand.
 
 ---
 
-## 12. Open: why `nrm2` is not just `dot(x,x)`
+## 12. Measurements: verified solve — the exact residual
+
+```bash
+./build/applications/level2/verified_solve_study/verified_solve_study [nmax]
+```
+
+This is what the line of work was built toward. §1 established that Kulisch
+designed the exact scalar product for **verified computing**: an exact residual
+makes defect correction effective. Phases 1–4 built and characterized the
+instrument; this applies it to the problem it was designed for.
+
+### 12.1 The honest baseline: naive interval `trsv`
+
+Interval arithmetic applied directly to elimination, `interval<posit<32,2>>`,
+n = 16:
+
+| off | −0.25 | −0.50 | −0.75 | −0.90 | −0.99 |
+|---|---|---|---|---|---|
+| max rel. width | 5.96e-07 | 1.55e-06 | 2.26e-06 | 3.65e-06 | 3.74e-06 |
+| certified digits | 6.2 | 5.8 | 5.6 | 5.4 | 5.4 |
+
+Degrading with conditioning, as expected. Included because it is the baseline the
+literature says to *avoid*, and a study that skipped straight to the method that
+works would be hiding the comparison.
+
+### 12.2 The payoff: defect correction, working vs exact residual
+
+Hilbert system, `posit<32,2>` (u = 3.7e-09), relative forward error per
+correction step:
+
+| n | cond | cond·u | residual | it0 | it1 | it2 | it3 | it4 |
+|---:|---:|---:|---|---:|---:|---:|---:|---:|
+| 4 | 2.8e+04 | 1.1e-04 | working | 6.0e-06 | 9.6e-06 | 1.8e-05 | 1.8e-05 | **1.8e-05** |
+| | | | **EXACT** | 6.0e-06 | 3.7e-09 | 3.7e-09 | 3.7e-09 | **3.7e-09** |
+| 6 | 2.9e+07 | 1.1e-01 | working | 1.2e-02 | 1.9e-02 | 2.9e-02 | 1.7e-02 | **2.1e-02** |
+| | | | **EXACT** | 1.2e-02 | 1.9e-05 | 3.1e-08 | 4.4e-09 | **3.0e-09** |
+| 8 | 1.9e+10 | 7.0e+01 | working | 3.7e-01 | 1.0e-01 | 4.6e-02 | 1.1e+00 | 4.9e-01 |
+| | | | EXACT | 3.7e-01 | 2.6e-01 | 1.8e-01 | 1.3e-01 | 9.2e-02 |
+
+`cfloat<32,8>` (u = 6.0e-08) behaves identically: at n = 4 the working residual
+stagnates at 1.2e-04 while the exact residual reaches **5.9e-08 = u**.
+
+### Why a general system and not `trsv`
+
+Triangular systems are solved far more accurately than their condition number
+suggests (Higham, ASNA ch. 8). Measured while building this: back-substitution
+lands within a few ulp, defect correction has nothing to correct, and the two
+residuals are indistinguishable. A Phase 5 built on `trsv` would have passed
+vacuously and concluded, wrongly, that the exact residual does not help. The
+Hilbert matrix is used because its forward error genuinely tracks `cond·u`.
+
+---
+
+## 13. Findings: verified solve
+
+15. **The exact residual decouples accuracy from conditioning.** With a
+    working-precision residual, defect correction stagnates at ~`cond·u` — and at
+    n = 4 it gets *worse* with each step (6.0e-06 → 1.8e-05), because it is
+    correcting with noise. With an exact residual it reaches **`u` exactly**
+    (3.7e-09 for posit<32,2>, 5.9e-08 for cfloat<32,8>).
+
+16. **And it holds as conditioning grows.** From n = 4 to n = 6 the condition
+    number rises **1000×** (2.8e+04 → 2.9e+07) and the final accuracy with an
+    exact residual is *unchanged* at ~`u`, while the working-precision residual
+    degrades from 1.8e-05 to 2.1e-02. That is the decoupling stated precisely:
+    the exact residual removes `cond` from the achievable accuracy.
+
+    This is the classical Wilkinson result on iterative refinement, and it is
+    Kulisch's argument for the exact scalar product — here measured on posit and
+    cfloat arithmetic.
+
+17. **The claim is bounded, and the bound is not the residual.** Past
+    `cond·u ≈ 1` (n = 8, `cond·u = 70`) the exact residual reaches only 9.2e-02.
+    The working-precision *factorization* carries no correct digits at that point,
+    and no residual can rescue it. So the exact residual removes the `cond`
+    dependence **of the residual**, not of the factorization — which is the honest
+    form of the claim and the one the test asserts.
+
+### What the exact dot product is for
+
+Across five phases the answer is narrow and specific:
+
+| obstacle | can an exact accumulator help? |
+|---|---|
+| accumulation error in a reduction | **Yes — completely.** 15.4 digits where naive certifies none (§5) |
+| a reduction hidden across calls | **Yes, after re-expressing** as one reduction (§11) |
+| catastrophic cancellation in a residual | **Yes — decouples accuracy from `cond`** (§13) |
+| dependency (`nrm2` as `dot(x,x)`) | No — mathematical (§14) |
+| wrapping (repeated `rot`) | No — representational (§9) |
+| a factorization that has already failed | No — outside its reach (§13.17) |
+
+The exact dot product makes **reductions** exact. Everything it buys follows from
+that one property, and everything it cannot do falls outside it. The verified
+solve is the case where that single property is worth the most: it is the
+difference between an answer whose accuracy degrades with the problem's
+conditioning and one that does not.
+
+---
+
+## 14. Open: why `nrm2` is not just `dot(x,x)`
 
 Phase 1 lists `nrm2` alongside `dot`. It is not done, and the reason is a genuine
 finding rather than a scheduling note.

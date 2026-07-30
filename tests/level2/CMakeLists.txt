@@ -13,3 +13,7 @@ mpblas_add_test(test_trsv_smoke)
 # attributes Phase 1's win to accumulation, and gemv reproducing it row-wise.
 # Also pins that repeated ger is a reduction no per-call seam can reach.
 mpblas_add_test(test_interval_l2)
+
+# Verified solve (issue #12, Phase 5): defect correction with a working vs EXACT
+# residual -- the claim the whole interval line of work was built toward.
+mpblas_add_test(test_verified_solve)

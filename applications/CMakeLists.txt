@@ -37,3 +37,7 @@ add_subdirectory(level1/interval_rot_study)
 # Interval BLAS Phase 4 (issue #12): gemm at level 3, plus the rank-k experiment
 # -- does re-expressing k ger calls as one gemm dissolve Phase 2's interface limit?
 add_subdirectory(level3/interval_matmul_study)
+
+# Interval BLAS Phase 5 (issue #12): naive interval trsv as the baseline, and
+# defect correction with a working vs EXACT residual -- what the EDP was for.
+add_subdirectory(level2/verified_solve_study)
