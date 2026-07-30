@@ -237,7 +237,26 @@ double overestimation(const Interval& iv, const exact_ref& truth) {
     return overestimation<Interval, Scalar>(iv, truth, truth);
 }
 
+/// Absolute width, upper - lower.
+///
+/// Prefer this to relative_width() whenever the enclosure may contain zero --
+/// see the caveat on relative_width(). Reductions that bracket zero are common
+/// (a cancelling dot product, a repeated rotation, a residual near convergence),
+/// so this is not an edge case in the later phases of issue #12.
+template <typename Interval>
+double absolute_width(const Interval& iv) {
+    return static_cast<double>(iv.upper()) - static_cast<double>(iv.lower());
+}
+
 /// Relative width w/|midpoint| -- the certified precision actually delivered.
+///
+/// CAVEAT: meaningless when the enclosure contains zero, and wildly unstable when
+/// the midpoint is merely NEAR zero, because the midpoint is the denominator. Two
+/// enclosures with identical absolute width can report relative widths orders of
+/// magnitude apart purely from where their midpoints land -- observed while
+/// testing the straddle x straddle corner case, where [-64, 64] from two
+/// different accumulators gave 1.3e8 and 1.3e2 for the same 1.28e2 absolute
+/// width. Use absolute_width() there.
 template <typename Interval>
 double relative_width(const Interval& iv) {
     const auto lo = static_cast<double>(iv.lower());

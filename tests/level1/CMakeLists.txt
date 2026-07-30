@@ -20,3 +20,8 @@ mpblas_add_test(test_dot_characterization)
 # Theorem of Interval Arithmetic across element types and operators. Every width
 # measurement in issue #12's later phases is meaningless unless this is green.
 mpblas_add_test(test_interval_containment)
+
+# Interval quire accumulator (issue #12, Phase 1): the H1/H2 tightness claims --
+# naive interval width grows with n and cond, exact quire accumulation is flat in
+# both. Depends on test_interval_containment staying green (correctness first).
+mpblas_add_test(test_interval_quire)
