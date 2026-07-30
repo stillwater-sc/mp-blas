@@ -13,9 +13,9 @@ correction effective, which is what yields results with machine-proved bounds �
 and then measured only accuracy and reproducibility. Interval arithmetic is the
 consumer of that guarantee, and this is where it gets measured.
 
-**Status: Phases 0–3 complete** (containment gate; `dot`; `ger`/`gemv`; `rot` and
-wrapping). Phase 1's `nrm2` is open, for a reason worth reading (§10). Phases 4–5
-are unstarted.
+**Status: Phases 0–4 complete** (containment gate; `dot`; `ger`/`gemv`; `rot` and
+wrapping; `gemm` and the rank-k update). Phase 1's `nrm2` is open, for a reason
+worth reading (§12). Phase 5 (`solve`) is unstarted.
 
 ---
 
@@ -409,7 +409,94 @@ completely (§5).
 
 ---
 
-## 10. Open: why `nrm2` is not just `dot(x,x)`
+## 10. Measurements: level 3 — `gemm` and the rank-k update
+
+```bash
+./build/applications/level3/interval_matmul_study/interval_matmul_study [nmax]
+```
+
+Two jobs. The first is confirmatory; the second changes an entry in the
+three-limits table above. gcc and clang agree byte-for-byte.
+
+### 10.1 `gemm` reproduces Phase 1 element-wise
+
+`interval<posit<32,2>>`, worst element:
+
+| regime | n | cond | naive | **quire** | dig(nv) | **dig(qr)** |
+|---|---:|---:|---:|---:|---:|---:|
+| uniform | 32 | 1.1e+01 | 2.6e-07 | **2.3e-16** | 6.6 | **15.6** |
+| graded | 32 | 3.2e+00 | 8.1e-06 | **3.1e-16** | 5.1 | **15.5** |
+| cancel 1e-3 | 32 | 1.9e+04 | 2.6e-04 | **4.3e-16** | 3.6 | **15.4** |
+| cancel 1e-9 | 32 | 1.9e+10 | 2.6e+02 | **4.1e-16** | −2.4 | **15.4** |
+| kahan 1e-6 | 32 | 1.0e+18 | 3.6e+07 | **4.2e-16** | **−7.6** | **15.4** |
+
+As at level 2, this is the expected outcome rather than a new one: each `C(i,j)`
+*is* a dot product. It is worth asserting precisely because a level-3 result that
+differed would indicate a broken accumulator seam, not a discovery.
+
+### 10.2 The rank-k update: does re-expressing dissolve the interface limit?
+
+Phase 2 found that `k` successive `ger` calls form a reduction spread across
+*calls*, which no per-call accumulator seam can reach. The proposed remedy was
+structural — express the same computation as one `gemm`, `A += X·Yᵀ`, so the sum
+becomes a single k-term reduction the `gemm` seam *can* accumulate exactly.
+
+All three formulations compute the same quantity, and all three are checked
+against the same reference. Widths normalized by `max |A(i,j)|`, because a rank-k
+update has many elements with midpoints near zero (see the `relative_width`
+caveat in §1).
+
+`interval<posit<32,2>>`, n = 8:
+
+| k | ger × k | gemm naive | **gemm + quire** |
+|---:|---:|---:|---:|
+| 1 | 2.75e-08 | 1.84e-08 | **2.74e-16** |
+| 4 | 4.92e-08 | 3.58e-08 | **2.66e-16** |
+| 16 | 1.07e-07 | 1.07e-07 | **2.45e-16** |
+| 64 | 4.32e-07 | 3.90e-07 | **2.50e-16** |
+| 256 | 1.84e-06 | 1.80e-06 | **2.62e-16** |
+| **growth** | **×67** | **×98** | **×0.96** |
+
+`interval<cfloat<32,8>>` is the same shape (×67, ×97, ×0.96), with the final gap
+reaching 1.1e+11.
+
+---
+
+## 11. Findings: level 3
+
+13. **`gemm` is Phase 1 element-wise**, at 15.4–15.6 certified digits regardless
+    of conditioning, while naive reaches **−7.6 digits** on `kahan` — an enclosure
+    ~10⁷ times wider than the value it encloses. No level-3-specific effect.
+
+14. **The interface limit is genuinely fixable — and the fix needs both halves.**
+    Re-expressing `k` rank-1 updates as one `gemm` exposes the accumulator seam
+    that a sequence of `ger` calls cannot. But **re-expression alone does
+    nothing**: naive `gemm` degrades with `k` exactly as repeated `ger` does (×98
+    vs ×67). It is re-expression *plus* exact accumulation that makes the width
+    flat (×0.96 over a 256× increase in `k`), and the gap reaches 7e+09.
+
+    The second half is the one that is easy to assume away, so the test asserts
+    naive `gemm` **does** degrade — if that ever stops being true, this finding is
+    wrong and should be revisited rather than quietly inherited.
+
+### The three limits, revisited
+
+Phase 4 updates the table from §9:
+
+| limit | example | can an exact accumulator help? |
+|---|---|---|
+| **dependency** | `nrm2` as `sqrt(dot(x,x))` (§12) | **No** — mathematical |
+| **interface** | repeated `ger`, `trsv` | **Yes, after re-expressing** — `A += X·Yᵀ` as one `gemm` restores it fully (§11.14) |
+| **wrapping** | repeated `rot` (§9) | **No** — representational |
+
+So of the three obstacles found, exactly one is an artifact of how the
+computation was *written* rather than what it *is* — and that one dissolves
+completely once the reduction is made visible to the accumulator. The other two
+stand.
+
+---
+
+## 12. Open: why `nrm2` is not just `dot(x,x)`
 
 Phase 1 lists `nrm2` alongside `dot`. It is not done, and the reason is a genuine
 finding rather than a scheduling note.
