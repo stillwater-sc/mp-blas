@@ -243,9 +243,37 @@
   | dependency | `nrm2` = `sqrt(dot(x,x))` | **No** -- mathematical |
   | interface | repeated `ger`, `trsv` | **Yes, after re-expressing** |
   | wrapping | repeated `rot` | **No** -- representational |
-- [ ] Phase 5: residual-based verified `solve` -- naive interval elimination is
-  expected to blow up; the real method is Krawczyk/Rump verification of an
-  approximate solution, whose residual is exactly what Kulisch wanted the EDP for.
+- [x] **Phase 5 verified solve** -- `applications/level2/verified_solve_study` +
+  `tests/level2/test_verified_solve`. What the whole line of work was built toward.
+
+  **Headline findings.** (1) **The exact residual decouples accuracy from
+  conditioning.** With a working-precision residual, defect correction stagnates
+  at ~`cond*u` -- and at n=4 gets *worse* each step (6.0e-06 -> 1.8e-05), because
+  it corrects with noise. With an exact residual it reaches **`u` exactly**
+  (3.7e-09 for posit<32,2>, 5.9e-08 for cfloat<32,8>). (2) **It holds as
+  conditioning grows:** from n=4 to n=6 `cond` rises **1000x** (2.8e4 -> 2.9e7)
+  and the exact-residual accuracy is *unchanged* at ~`u`, while the
+  working-precision residual degrades 1.8e-05 -> 2.1e-02. The classical Wilkinson
+  refinement result and Kulisch's argument, measured on posit and cfloat.
+  (3) **The claim is bounded, and not by the residual:** past `cond*u ~ 1` (n=8,
+  `cond*u = 70`) the exact residual reaches only 9.2e-02, because the
+  working-precision *factorization* carries no correct digits. The exact residual
+  removes the `cond` dependence OF THE RESIDUAL, not of the factorization.
+
+  Design finding worth keeping: `trsv` is the wrong vehicle for this experiment.
+  Triangular systems are solved far more accurately than their condition number
+  suggests (Higham ASNA ch. 8), so back-substitution lands within a few ulp,
+  defect correction has nothing to correct, and the two residuals are
+  indistinguishable -- a Phase 5 built on `trsv` would have passed vacuously and
+  concluded the opposite. Hilbert is used because its forward error genuinely
+  tracks `cond*u`.
+
+  **What the exact dot product is for**, across all five phases: it makes
+  REDUCTIONS exact. Everything it buys follows from that one property --
+  15.4 certified digits where naive certifies none; rank-k restored once the
+  reduction is re-expressed; accuracy decoupled from conditioning in defect
+  correction -- and everything it cannot do (dependency, wrapping, a failed
+  factorization) falls outside it.
 
 ## Related
 

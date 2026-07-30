@@ -1,0 +1,2 @@
+add_executable(verified_solve_study verified_solve_study.cpp)
+target_link_libraries(verified_solve_study PRIVATE sw::mp_blas)
