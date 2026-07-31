@@ -136,12 +136,6 @@ where `∇` is round-toward-`-∞` and `Δ` is round-toward-`+∞`. Round to nea
 instead and each endpoint can move *inward* by up to half an ulp, so the interval
 becomes too narrow and the invariant of §1 is lost.
 
-This is not a hypothetical. Universal's `interval` did exactly this until
-recently — `interval(0.1) * interval(0.1)` returned a **zero-width** interval
-around a value the exact product does not equal (stillwater-sc/universal#1234).
-The failure is quiet in the worst way: the intervals look impressively *tight*,
-precisely because they are wrong.
-
 Two implementation notes worth knowing:
 
 - **Directed rounding vs. `nextafter`.** Changing the FPU rounding mode is fast
