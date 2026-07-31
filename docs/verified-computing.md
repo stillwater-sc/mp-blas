@@ -10,13 +10,27 @@ This note is the theory companion to the two measurement studies in this repo �
 arithmetic what is derived here. Where a claim below has been measured, there is
 a pointer to the number.
 
-> **On the math.** GitHub's markdown pass strips a backslash before any of
-> ``\ ` * _ { } [ ] ( ) # + - . ! |`` *before* the math renderer sees it, inside
-> `$…$` and `$$…$$` alike. So `\|` arrives as `|` and renders as absolute-value
-> bars rather than a norm, and `\{` arrives as `{` and breaks `\left`. This
-> document therefore uses `\Vert`, `\lbrace`/`\rbrace` and `\cr` in place of
-> `\|`, `\{`/`\}` and `\\` — same output, no escapable character after the
-> backslash. Please keep to that when editing.
+> **On the math.** GitHub's markdown pass strips a backslash before **any ASCII
+> punctuation character** — the full CommonMark set, not just a few — and it does
+> so *before* the math renderer runs, inside `$…$` and `$$…$$` alike. The failure
+> is usually silent rather than loud: `\;` arrives as a literal `;`, `\,` as `,`,
+> and `\|` as `|`, all of which are valid LaTeX that simply renders *wrong*. Only
+> `\{`/`\}` fail noisily, by breaking `\left`.
+>
+> This document therefore avoids every backslash-punctuation sequence in math,
+> using letter-only macros that markdown cannot touch:
+>
+> | avoid | use | |
+> |---|---|---|
+> | `\;` | `\thickspace` | thick space |
+> | `\,` | `\thinspace` | thin space |
+> | `\|` | `\Vert` | norm |
+> | `\{` `\}` | `\lbrace` `\rbrace` | braces, incl. after `\left`/`\right` |
+> | `\\` | `\cr` | row separator in `aligned` |
+>
+> Please keep to that when editing. Checking that a formula *parses* is not
+> enough — most of these parse fine and render incorrectly, so a change has to be
+> checked by comparing rendered output before and after escaping.
 
 > **On citations.** Every DOI in §11 was looked up against the Crossref API and
 > then checked to resolve, rather than recalled — a DOI that silently resolves to
@@ -52,7 +66,7 @@ any indication of how much of that number is meaningful.
 Consider a concrete failure. Take
 
 $$
-x = (10^{16},\; 1,\; -10^{16}), \qquad y = (1,\; 1,\; 1).
+x = (10^{16},\thickspace 1,\thickspace -10^{16}), \qquad y = (1,\thickspace 1,\thickspace 1).
 $$
 
 The exact inner product is $x^Ty = 1$. Evaluated left to right in IEEE binary64:
@@ -120,7 +134,7 @@ $$
 tractable — *of what nearby problem is our answer the exact solution?*
 
 $$
-E_{\mathrm{bwd}} = \min\left\lbrace \frac{\Vert \Delta x\Vert}{\Vert x\Vert} \;:\; \hat{y} = f(x + \Delta x) \right\rbrace.
+E_{\mathrm{bwd}} = \min\left\lbrace \frac{\Vert \Delta x\Vert}{\Vert x\Vert} \thickspace :\thickspace \hat{y} = f(x + \Delta x) \right\rbrace.
 $$
 
 An algorithm is **backward stable** if $E_{\mathrm{bwd}}$ is of order $u$: the
@@ -141,7 +155,7 @@ The three quantities are linked by the single most useful rule of thumb in
 numerical analysis:
 
 $$
-\boxed{\;\text{forward error} \;\lesssim\; \text{condition number} \times \text{backward error}\;}
+\boxed{\thickspace \text{forward error} \thickspace \lesssim\thickspace \text{condition number} \times \text{backward error}\thickspace}
 $$
 
 This separates concerns cleanly, and the separation is the point:
@@ -186,8 +200,8 @@ For Gaussian elimination with partial pivoting, Wilkinson's 1961 analysis
 $\hat{x}$ satisfies
 
 $$
-(A + \Delta A)\,\hat{x} = b, \qquad
-\Vert \Delta A\Vert_\infty \le \gamma_{3n}\, \rho_n \Vert A\Vert_\infty,
+(A + \Delta A)\thinspace \hat{x} = b, \qquad
+\Vert \Delta A\Vert_\infty \le \gamma_{3n}\thinspace \rho_n \Vert A\Vert_\infty,
 $$
 
 where $\rho_n$ is the *growth factor* — how much entries swell during
@@ -236,7 +250,7 @@ $$
 $$
 
 **independent of $\kappa(A)$**. Compute the residual in working precision instead
-and refinement stagnates at $\approx \kappa(A)\,u$.
+and refinement stagnates at $\approx \kappa(A)\thinspace u$.
 
 The reason is exactly the failure of §1. Near convergence $A\hat{x} \approx b$, so
 forming $b - A\hat{x}$ is catastrophic cancellation: the leading digits agree and
@@ -257,7 +271,7 @@ Apply the model of §2.1 to $x^Ty = \sum_{i=1}^n x_i y_i$. Every product rounds,
 every partial sum rounds, and the errors accumulate:
 
 $$
-\boxed{\;\bigl|\mathrm{fl}(x^Ty) - x^Ty\bigr| \;\le\; \gamma_n \,|x|^T|y| \;}
+\boxed{\thickspace \bigl|\mathrm{fl}(x^Ty) - x^Ty\bigr| \thickspace \le\thickspace \gamma_n \thinspace |x|^T|y| \thickspace}
 $$
 
 where $|x|$ denotes componentwise absolute value, so
@@ -279,13 +293,13 @@ differ by exactly the amount of cancellation in the sum. Dividing through:
 
 $$
 \frac{\bigl|\mathrm{fl}(x^Ty) - x^Ty\bigr|}{|x^Ty|}
-\;\le\; \frac{\gamma_n}{2} \cdot \underbrace{\frac{2\,|x|^T|y|}{|x^Ty|}}_{\displaystyle \mathrm{cond}(x,y)}
+\thickspace \le\thickspace \frac{\gamma_n}{2} \cdot \underbrace{\frac{2\thinspace |x|^T|y|}{|x^Ty|}}_{\displaystyle \mathrm{cond}(x,y)}
 $$
 
 The quantity
 
 $$
-\boxed{\;\mathrm{cond}(x,y) = \frac{2\,|x|^T|y|}{|x^Ty|}\;}
+\boxed{\thickspace \mathrm{cond}(x,y) = \frac{2\thinspace |x|^T|y|}{|x^Ty|}\thickspace}
 $$
 
 is the **condition number of the dot product**. It has a clean interpretation:
@@ -329,11 +343,11 @@ founded the field. The idea is disarmingly simple: replace each number by an
 interval known to contain it, and define arithmetic so containment is preserved.
 
 $$
-[a,b] + [c,d] = [a+c,\; b+d], \qquad
-[a,b] - [c,d] = [a-d,\; b-c],
+[a,b] + [c,d] = [a+c,\thickspace b+d], \qquad
+[a,b] - [c,d] = [a-d,\thickspace b-c],
 $$
 $$
-[a,b] \times [c,d] = [\min(ac,ad,bc,bd),\; \max(ac,ad,bc,bd)].
+[a,b] \times [c,d] = [\min(ac,ad,bc,bd),\thickspace \max(ac,ad,bc,bd)].
 $$
 
 On a real computer each endpoint must additionally be rounded **outward** — the
@@ -342,7 +356,7 @@ lost. The resulting property, the **Fundamental Theorem of Interval
 Arithmetic**, is what makes the whole thing worth doing:
 
 $$
-\boxed{\;\forall\, x \in X,\; y \in Y: \quad x \circ y \;\in\; \mathrm{fl}(X \circ Y)\;}
+\boxed{\thickspace \forall\thinspace x \in X,\thickspace y \in Y: \quad x \circ y \thickspace \in\thickspace \mathrm{fl}(X \circ Y)\thickspace}
 $$
 
 evaluated over the exact reals. Compose operations and containment composes: the
@@ -364,7 +378,7 @@ is for.
 variable as independent. So for $X = [1,2]$,
 
 $$
-X - X = [1-2,\; 2-1] = [-1, 1] \;\ne\; [0,0],
+X - X = [1-2,\thickspace 2-1] = [-1, 1] \thickspace \ne\thickspace [0,0],
 $$
 
 and for $X = [-1,2]$,
@@ -382,7 +396,7 @@ as one. Rotate a box by $\theta$ and take the axis-aligned hull: the width is
 multiplied by
 
 $$
-|\cos\theta| + |\sin\theta| \;\in\; [1, \sqrt{2}],
+|\cos\theta| + |\sin\theta| \thickspace \in\thickspace [1, \sqrt{2}],
 $$
 
 peaking at $\theta = 45°$. Apply $k$ rotations and the overestimation compounds
@@ -416,7 +430,7 @@ easier to state than it was to win:
 3. Therefore add the **exact dot product** (EDP) as a fifth operation:
 
 $$
-\boxed{\;\mathrm{EDP}(x,y) = \mathrm{round}\left(\sum_{i=1}^{n} x_i y_i\right)\;}
+\boxed{\thickspace \mathrm{EDP}(x,y) = \mathrm{round}\left(\sum_{i=1}^{n} x_i y_i\right)\thickspace}
 $$
 
    with the sum formed *exactly* and rounded exactly once at the end. The error is
@@ -424,7 +438,7 @@ $$
    $\mathrm{cond}$ — compare against §4.2:
 
 $$
-\underbrace{\frac{\gamma_n}{2}\,\mathrm{cond}(x,y)}_{\text{conventional}}
+\underbrace{\frac{\gamma_n}{2}\thinspace \mathrm{cond}(x,y)}_{\text{conventional}}
 \qquad\text{versus}\qquad
 \underbrace{u}_{\text{EDP}}
 $$
@@ -442,8 +456,8 @@ spanning that range, plus a few guard bits for carries, can hold **any** sum of
 **any** number of such products with no rounding at all:
 
 $$
-\text{width} \;\approx\; \underbrace{2|e_{\min}| + 2f}_{\text{below the point}}
-\;+\; \underbrace{2 e_{\max}}_{\text{above}} \;+\; \underbrace{k}_{\text{carry guard}}
+\text{width} \thickspace \approx\thickspace \underbrace{2|e_{\min}| + 2f}_{\text{below the point}}
+\thickspace +\thickspace \underbrace{2 e_{\max}}_{\text{above}} \thickspace +\thickspace \underbrace{k}_{\text{carry guard}}
 \quad\text{bits.}
 $$
 
@@ -471,9 +485,9 @@ reasoning is
 
 $$
 \text{exact dot product}
-\;\Longrightarrow\; \text{accurate residual}
-\;\Longrightarrow\; \text{effective defect correction}
-\;\Longrightarrow\; \text{verified enclosure}.
+\thickspace \Longrightarrow\thickspace \text{accurate residual}
+\thickspace \Longrightarrow\thickspace \text{effective defect correction}
+\thickspace \Longrightarrow\thickspace \text{verified enclosure}.
 $$
 
 This shows in what he built: the ACRITH library for IBM System/370 (early
@@ -520,28 +534,27 @@ extensively by Rump — is to *not* compute in intervals at all. Instead:
 Define the residual and the iteration matrix
 
 $$
-z = R\,(b - A\tilde{x}), \qquad C = I - RA .
+z = R\thinspace (b - A\tilde{x}), \qquad C = I - RA .
 $$
 
 $C$ measures how far $R$ is from a true inverse. The **Krawczyk operator** is
 
 $$
-K(X) = z + C\,X ,
+K(X) = z + C\thinspace X ,
 $$
 
 and the theorem is:
 
 $$
-\boxed{\;K(X) \subseteq \mathrm{int}(X)
-\;\Longrightarrow\;
-A \text{ is nonsingular, and } x^* \in \tilde{x} + X. \;}
+\boxed{\thickspace K(X) \subseteq \mathrm{int}(X)
+\thickspace \Longrightarrow\thickspace A \text{ is nonsingular, and } x^* \in \tilde{x} + X. \thickspace}
 $$
 
 A single inclusion test proves both **existence** and **uniqueness** of the
 solution, and bounds it. When $\Vert C\Vert_\infty < 1$ the enclosure radius satisfies
 
 $$
-\Vert X\Vert_\infty \;\lesssim\; \frac{\Vert z\Vert_\infty}{1 - \Vert C\Vert_\infty}.
+\Vert X\Vert_\infty \thickspace \lesssim\thickspace \frac{\Vert z\Vert_\infty}{1 - \Vert C\Vert_\infty}.
 $$
 
 ### 7.3 Where the exact dot product enters
@@ -602,8 +615,8 @@ independent mean-zero random variables. Then errors accumulate like a random wal
 rather than a sum, and $\gamma_n$ is replaced by
 
 $$
-\tilde{\gamma}_n(\lambda) \;=\; \exp\left(\frac{\lambda\sqrt{n}\,u + n u^2}{1-u}\right) - 1
-\;\approx\; \lambda \sqrt{n}\, u ,
+\tilde{\gamma}_n(\lambda) \thickspace =\thickspace \exp\left(\frac{\lambda\sqrt{n}\thinspace u + n u^2}{1-u}\right) - 1
+\thickspace \approx\thickspace \lambda \sqrt{n}\thinspace u ,
 $$
 
 holding with a probability controlled by $\lambda$. The deterministic $n$ becomes
