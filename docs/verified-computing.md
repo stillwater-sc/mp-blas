@@ -10,10 +10,13 @@ This note is the theory companion to the two measurement studies in this repo �
 arithmetic what is derived here. Where a claim below has been measured, there is
 a pointer to the number.
 
-> **On citations.** References are given as author / title / venue / year. Titles
-> and years are stated as accurately as I can; volume and page numbers are
-> deliberately omitted where I am not certain of them. Verify before quoting this
-> document in a paper.
+> **On citations.** Every DOI in §11 was looked up against the Crossref API and
+> then checked to resolve, rather than recalled — a DOI that silently resolves to
+> the wrong paper is worse than no link at all. Each was confirmed to match the
+> expected title, venue and year, and a deliberately invalid DOI was used as a
+> control (it returns 404 where all of these resolve). Two works predate DOI
+> assignment and say so explicitly. Volume and page numbers are still omitted
+> where I am not certain of them.
 
 ---
 
@@ -773,44 +776,48 @@ architecture, and engineering practice.
 
 ## 11. References
 
-**Foundational**
+All links verified to resolve. Where a publisher blocks automated requests the
+DOI still redirects correctly; only the two works marked *no DOI* lack one.
 
-- J. von Neumann and H. H. Goldstine, "Numerical inverting of matrices of high order", *Bulletin of the AMS*, 1947.
-- A. M. Turing, "Rounding-off errors in matrix processes", *Quarterly Journal of Mechanics and Applied Mathematics*, 1948.
+### Foundational
 
-**Wilkinson**
+- J. von Neumann and H. H. Goldstine, "Numerical inverting of matrices of high order", *Bulletin of the AMS*, 1947. [doi:10.1090/S0002-9904-1947-08909-6](https://doi.org/10.1090/S0002-9904-1947-08909-6)
+- A. M. Turing, "Rounding-off errors in matrix processes", *Quarterly Journal of Mechanics and Applied Mathematics*, 1948. [doi:10.1093/qjmam/1.1.287](https://doi.org/10.1093/qjmam/1.1.287)
 
-- J. H. Wilkinson, "Error analysis of direct methods of matrix inversion", *Journal of the ACM*, 1961.
-- J. H. Wilkinson, *Rounding Errors in Algebraic Processes*, HMSO / Prentice-Hall, 1963.
-- J. H. Wilkinson, *The Algebraic Eigenvalue Problem*, Oxford University Press, 1965.
+### Wilkinson
 
-**Interval analysis and verification**
+- J. H. Wilkinson, "Error analysis of direct methods of matrix inversion", *Journal of the ACM*, 1961. [doi:10.1145/321075.321076](https://doi.org/10.1145/321075.321076)
+- J. H. Wilkinson, *Rounding Errors in Algebraic Processes*, 1963. Reissued as a SIAM Classics edition in 2023, which is the accessible one: [doi:10.1137/1.9781611977523](https://doi.org/10.1137/1.9781611977523)
+- J. H. Wilkinson, *The Algebraic Eigenvalue Problem*, Clarendon Press / Oxford University Press, 1965. **No DOI** — predates DOI assignment and has not been retro-assigned one.
 
-- R. E. Moore, *Interval Analysis*, Prentice-Hall, 1966.
-- R. Krawczyk, "Newton-Algorithmen zur Bestimmung von Nullstellen mit Fehlerschranken", *Computing*, 1969.
-- S. M. Rump, "Verification methods: Rigorous results using floating-point arithmetic", *Acta Numerica*, 2010.
-- IEEE Std 1788-2015, *IEEE Standard for Interval Arithmetic*.
+### Interval analysis and verification
 
-**Kulisch**
+- R. E. Moore, *Interval Analysis*, Prentice-Hall, 1966. **No DOI** — predates DOI assignment. Moore's later SIAM volumes are the practical entry points: *Methods and Applications of Interval Analysis*, 1979, [doi:10.1137/1.9781611970906](https://doi.org/10.1137/1.9781611970906); and R. E. Moore, R. B. Kearfott, M. J. Cloud, *Introduction to Interval Analysis*, 2009, [doi:10.1137/1.9780898717716](https://doi.org/10.1137/1.9780898717716)
+- R. Krawczyk, "Newton-Algorithmen zur Bestimmung von Nullstellen mit Fehlerschranken", *Computing*, 1969. [doi:10.1007/BF02234767](https://doi.org/10.1007/BF02234767)
+- S. M. Rump, "Verification methods: Rigorous results using floating-point arithmetic", *Acta Numerica*, 2010. [doi:10.1017/S096249291000005X](https://doi.org/10.1017/S096249291000005X)
+- IEEE Std 1788-2015, *IEEE Standard for Interval Arithmetic*. [doi:10.1109/IEEESTD.2015.7140721](https://doi.org/10.1109/IEEESTD.2015.7140721) · [standards.ieee.org](https://standards.ieee.org/ieee/1788/4431/)
 
-- U. Kulisch and W. L. Miranker, *Computer Arithmetic in Theory and Practice*, Academic Press, 1981.
-- U. Kulisch and W. L. Miranker, "The Arithmetic of the Digital Computer: A New Approach", *SIAM Review*, 1986.
-- U. Kulisch, *Computer Arithmetic and Validity: Theory, Implementation, and Applications*, de Gruyter, 2nd ed., 2013.
+### Kulisch
 
-**Higham**
+- U. Kulisch and W. L. Miranker, *Computer Arithmetic in Theory and Practice*, Academic Press, 1981. No book-level DOI; the chapters are individually assigned, e.g. "Definition of Computer Arithmetic" [doi:10.1016/B978-0-12-428650-4.50008-7](https://doi.org/10.1016/B978-0-12-428650-4.50008-7) (ISBN 978-0-12-428650-4).
+- U. Kulisch and W. L. Miranker, "The Arithmetic of the Digital Computer: A New Approach", *SIAM Review*, 1986. [doi:10.1137/1028001](https://doi.org/10.1137/1028001)
+- U. Kulisch, *Computer Arithmetic and Validity: Theory, Implementation, and Applications*, de Gruyter, 2nd ed., 2013. [doi:10.1515/9783110301793](https://doi.org/10.1515/9783110301793) (1st ed., 2008: [doi:10.1515/9783110203196](https://doi.org/10.1515/9783110203196))
 
-- N. J. Higham, *Accuracy and Stability of Numerical Algorithms*, SIAM, 2nd ed., 2002.
-- E. Carson and N. J. Higham, "Accelerating the solution of linear systems by iterative refinement in three precisions", *SIAM J. Sci. Comput.*, 2018.
-- N. J. Higham and T. Mary, "A New Approach to Probabilistic Rounding Error Analysis", *SIAM J. Sci. Comput.*, 2019.
-- P. Blanchard, N. J. Higham, T. Mary, "A Class of Fast and Accurate Summation Algorithms", *SIAM J. Sci. Comput.*, 2020.
-- N. J. Higham and T. Mary, "Mixed precision algorithms in numerical linear algebra", *Acta Numerica*, 2022.
+### Higham
 
-**Accurate and reproducible summation**
+- N. J. Higham, *Accuracy and Stability of Numerical Algorithms*, SIAM, 2nd ed., 2002. [doi:10.1137/1.9780898718027](https://doi.org/10.1137/1.9780898718027) · [book page](https://nhigham.com/accuracy-and-stability-of-numerical-algorithms/)
+- E. Carson and N. J. Higham, "A New Analysis of Iterative Refinement and Its Application to Accurate Solution of Ill-Conditioned Sparse Linear Systems", *SIAM J. Sci. Comput.*, 2017. [doi:10.1137/17M1122918](https://doi.org/10.1137/17M1122918)
+- E. Carson and N. J. Higham, "Accelerating the Solution of Linear Systems by Iterative Refinement in Three Precisions", *SIAM J. Sci. Comput.*, 2018. [doi:10.1137/17M1140819](https://doi.org/10.1137/17M1140819)
+- N. J. Higham and T. Mary, "A New Approach to Probabilistic Rounding Error Analysis", *SIAM J. Sci. Comput.*, 2019. [doi:10.1137/18M1226312](https://doi.org/10.1137/18M1226312)
+- P. Blanchard, N. J. Higham, T. Mary, "A Class of Fast and Accurate Summation Algorithms", *SIAM J. Sci. Comput.*, 2020. [doi:10.1137/19M1257780](https://doi.org/10.1137/19M1257780)
+- N. J. Higham and T. Mary, "Mixed precision algorithms in numerical linear algebra", *Acta Numerica*, 2022. [doi:10.1017/S0962492922000022](https://doi.org/10.1017/S0962492922000022)
 
-- T. Ogita, S. M. Rump, S. Oishi, "Accurate Sum and Dot Product", *SIAM J. Sci. Comput.*, 2005.
-- J. Demmel, P. Ahrens, H. D. Nguyen, "Efficient Reproducible Floating Point Summation and BLAS" (ReproBLAS), 2016.
-- R. Iakymchuk, S. Collange, D. Defour, S. Graillat, "ExBLAS: Reproducible and Accurate BLAS Library", 2015.
-- J. Gustafson and I. Yonemoto, "Beating Floating Point at its Own Game: Posit Arithmetic", *Supercomputing Frontiers and Innovations*, 2017.
+### Accurate and reproducible summation
+
+- T. Ogita, S. M. Rump, S. Oishi, "Accurate Sum and Dot Product", *SIAM J. Sci. Comput.*, 2005. [doi:10.1137/030601818](https://doi.org/10.1137/030601818)
+- S. Collange, D. Defour, S. Graillat, R. Iakymchuk, "Numerical reproducibility for the parallel reduction on multi- and many-core architectures", *Parallel Computing*, 2015 — the foundation of ExBLAS. [doi:10.1016/j.parco.2015.09.001](https://doi.org/10.1016/j.parco.2015.09.001) · [github.com/riakymch/exblas](https://github.com/riakymch/exblas)
+- J. Demmel, P. Ahrens, H. D. Nguyen, ReproBLAS — reproducible BLAS via indexed summation. [bebop.cs.berkeley.edu/reproblas](https://bebop.cs.berkeley.edu/reproblas/)
+- J. Gustafson and I. Yonemoto, "Beating Floating Point at its Own Game: Posit Arithmetic", *Supercomputing Frontiers and Innovations*, 2017. [doi:10.14529/jsfi170206](https://doi.org/10.14529/jsfi170206)
 
 ---
 
