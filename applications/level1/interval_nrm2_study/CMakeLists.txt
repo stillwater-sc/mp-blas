@@ -1,0 +1,2 @@
+add_executable(interval_nrm2_study interval_nrm2_study.cpp)
+target_link_libraries(interval_nrm2_study PRIVATE sw::mp_blas)

@@ -173,13 +173,29 @@
   stories land on one constant. (4) On `kahan 1e-6 / n=4096` naive and promoted
   both prove *nothing* while the quire proves 15.4 digits -- Kulisch's claim,
   measured.
-- [ ] **Phase 1 `nrm2`** -- blocked on a structural issue, not on effort:
+- [x] **Phase 1 `nrm2`** -- closed. `include/sw/mp_blas/interval_nrm2.hpp` +
+  `applications/level1/interval_nrm2_study` + `tests/level1/test_interval_nrm2`.
+
   `sqrt(dot(x,x))` hands the same interval to both arguments, so for a
-  zero-straddling element it computes `X*X` (lower endpoint `a*b < 0`) instead of
-  `X^2 = [0, max(a^2,b^2)]`. That is the dependency problem; **no accumulator
-  fixes it**, and an exact quire will faithfully accumulate the over-wide corner
-  products. Needs a dedicated squaring accumulation. First place in this work
-  where the EDP provably cannot help.
+  zero-straddling element it evaluates `X*X` (lower endpoint `a*b < 0`) instead of
+  `X^2 = [0, max(a^2,b^2)]` -- the dependency problem, which **no accumulator
+  fixes**. The remedy is to evaluate the square directly.
+
+  **Headline findings.** (1) The cost is the LOWER BOUND, not the width. At 75%
+  of elements straddling zero, `sqrt(dot(x,x))` certifies `||x|| >= 0` -- it
+  cannot prove the vector is nonzero -- where the sum-of-squares formulation
+  certifies `||x|| >= 1.29`. Width alone only differs by 1.55x, which badly
+  understates the damage; a lower bound on `||x||` is what proves
+  non-degeneracy. (2) `nrm2` has TWO independent defects and needs both fixed:
+  dependency (square vs product, no accumulator helps) and accumulation (quire,
+  naive grows 3.4e-07 -> 5.0e-05 over n=64..4096 while the quire stays ~4e-16).
+  (3) A detail worth keeping: `square()` must clamp its lower bound at zero
+  because outward rounding drives an EXACT zero endpoint just below zero, so
+  `[0,m]*[0,m]` returns a tiny negative lower bound.
+
+  Nice property the general product lacks: the straddling square is decided by an
+  exact MAGNITUDE comparison, so unlike interval multiplication it needs no
+  scratch quire to break the tie.
 - [x] **Phase 2 `ger` + `gemv`** -- separates interval multiplication from interval
   accumulation, so Phase 1's win can be attributed.
   `applications/level2/interval_matvec_study` + `tests/level2/test_interval_l2`.

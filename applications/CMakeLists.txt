@@ -41,3 +41,7 @@ add_subdirectory(level3/interval_matmul_study)
 # Interval BLAS Phase 5 (issue #12): naive interval trsv as the baseline, and
 # defect correction with a working vs EXACT residual -- what the EDP was for.
 add_subdirectory(level2/verified_solve_study)
+
+# Interval nrm2 (issue #12, Phase 1's open item): the dependency problem --
+# sqrt(dot(x,x)) evaluates X*X, not X^2, for elements straddling zero.
+add_subdirectory(level1/interval_nrm2_study)
