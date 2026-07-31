@@ -10,6 +10,14 @@ This note is the theory companion to the two measurement studies in this repo �
 arithmetic what is derived here. Where a claim below has been measured, there is
 a pointer to the number.
 
+> **On the math.** GitHub's markdown pass strips a backslash before any of
+> ``\ ` * _ { } [ ] ( ) # + - . ! |`` *before* the math renderer sees it, inside
+> `$…$` and `$$…$$` alike. So `\|` arrives as `|` and renders as absolute-value
+> bars rather than a norm, and `\{` arrives as `{` and breaks `\left`. This
+> document therefore uses `\Vert`, `\lbrace`/`\rbrace` and `\cr` in place of
+> `\|`, `\{`/`\}` and `\\` — same output, no escapable character after the
+> backslash. Please keep to that when editing.
+
 > **On citations.** Every DOI in §11 was looked up against the Crossref API and
 > then checked to resolve, rather than recalled — a DOI that silently resolves to
 > the wrong paper is worse than no link at all. Each was confirmed to match the
@@ -91,7 +99,7 @@ The standard model says every basic operation is correctly rounded:
 
 $$
 \mathrm{fl}(a \circ b) = (a \circ b)(1 + \delta), \qquad |\delta| \le u,
-\qquad \circ \in \{+, -, \times, \div\}.
+\qquad \circ \in \lbrace+, -, \times, \div\rbrace.
 $$
 
 This is exactly what IEEE 754 guarantees for $+, -, \times, \div, \sqrt{\cdot}$.
@@ -105,14 +113,14 @@ Let $y = f(x)$ be what we want and $\hat{y}$ what we compute.
 **Forward error** is the obvious question — how wrong is the answer?
 
 $$
-E_{\mathrm{fwd}} = \frac{\|\hat{y} - y\|}{\|y\|}.
+E_{\mathrm{fwd}} = \frac{\Vert \hat{y} - y\Vert}{\Vert y\Vert}.
 $$
 
 **Backward error** is the non-obvious question, and the one that made the field
 tractable — *of what nearby problem is our answer the exact solution?*
 
 $$
-E_{\mathrm{bwd}} = \min\left\{ \frac{\|\Delta x\|}{\|x\|} \;:\; \hat{y} = f(x + \Delta x) \right\}.
+E_{\mathrm{bwd}} = \min\left\lbrace \frac{\Vert \Delta x\Vert}{\Vert x\Vert} \;:\; \hat{y} = f(x + \Delta x) \right\rbrace.
 $$
 
 An algorithm is **backward stable** if $E_{\mathrm{bwd}}$ is of order $u$: the
@@ -125,8 +133,8 @@ The **condition number** measures how much the *problem* amplifies input
 perturbations — a property of $f$ and $x$, with nothing to do with arithmetic:
 
 $$
-\kappa(f, x) = \lim_{\epsilon \to 0} \sup_{\|\Delta x\| \le \epsilon \|x\|}
-\frac{\|f(x + \Delta x) - f(x)\|}{\epsilon \|f(x)\|}.
+\kappa(f, x) = \lim_{\epsilon \to 0} \sup_{\Vert \Delta x\Vert \le \epsilon \Vert x\Vert}
+\frac{\Vert f(x + \Delta x) - f(x)\Vert}{\epsilon \Vert f(x)\Vert}.
 $$
 
 The three quantities are linked by the single most useful rule of thumb in
@@ -179,7 +187,7 @@ $\hat{x}$ satisfies
 
 $$
 (A + \Delta A)\,\hat{x} = b, \qquad
-\|\Delta A\|_\infty \le \gamma_{3n}\, \rho_n \|A\|_\infty,
+\Vert \Delta A\Vert_\infty \le \gamma_{3n}\, \rho_n \Vert A\Vert_\infty,
 $$
 
 where $\rho_n$ is the *growth factor* — how much entries swell during
@@ -214,8 +222,8 @@ approximate solution $\hat{x}$ of $Ax = b$:
 
 $$
 \begin{aligned}
-r &= b - A\hat{x} && \text{(residual)} \\
-A d &= r && \text{(solve with the existing factorization — cheap)} \\
+r &= b - A\hat{x} && \text{(residual)} \cr
+A d &= r && \text{(solve with the existing factorization — cheap)} \cr
 \hat{x} &\leftarrow \hat{x} + d && \text{(correct)}
 \end{aligned}
 $$
@@ -224,7 +232,7 @@ The classical result, with the residual computed in **extended precision**: if
 $\kappa(A) u < 1$, the refined solution attains
 
 $$
-\frac{\|\hat{x} - x\|_\infty}{\|x\|_\infty} \approx u,
+\frac{\Vert \hat{x} - x\Vert_\infty}{\Vert x\Vert_\infty} \approx u,
 $$
 
 **independent of $\kappa(A)$**. Compute the residual in working precision instead
@@ -408,7 +416,7 @@ easier to state than it was to win:
 3. Therefore add the **exact dot product** (EDP) as a fifth operation:
 
 $$
-\boxed{\;\mathrm{EDP}(x,y) = \mathrm{round}\!\left(\sum_{i=1}^{n} x_i y_i\right)\;}
+\boxed{\;\mathrm{EDP}(x,y) = \mathrm{round}\left(\sum_{i=1}^{n} x_i y_i\right)\;}
 $$
 
    with the sum formed *exactly* and rounded exactly once at the end. The error is
@@ -530,20 +538,20 @@ A \text{ is nonsingular, and } x^* \in \tilde{x} + X. \;}
 $$
 
 A single inclusion test proves both **existence** and **uniqueness** of the
-solution, and bounds it. When $\|C\|_\infty < 1$ the enclosure radius satisfies
+solution, and bounds it. When $\Vert C\Vert_\infty < 1$ the enclosure radius satisfies
 
 $$
-\|X\|_\infty \;\lesssim\; \frac{\|z\|_\infty}{1 - \|C\|_\infty}.
+\Vert X\Vert_\infty \;\lesssim\; \frac{\Vert z\Vert_\infty}{1 - \Vert C\Vert_\infty}.
 $$
 
 ### 7.3 Where the exact dot product enters
 
 Look at what governs each factor:
 
-- $\|C\|_\infty < 1$ is the **feasibility** condition. It depends on the quality
+- $\Vert C\Vert_\infty < 1$ is the **feasibility** condition. It depends on the quality
   of the preconditioner $R$ — i.e. on $\kappa(A)$ and the precision of the
   inversion. The EDP does not help here.
-- $\|z\|_\infty$ sets the **tightness**. And $z$ is a preconditioned *residual*,
+- $\Vert z\Vert_\infty$ sets the **tightness**. And $z$ is a preconditioned *residual*,
   computed at the point where $A\tilde{x} \approx b$ — catastrophic cancellation,
   $\mathrm{cond}$ of order $\kappa(A)$.
 
@@ -594,7 +602,7 @@ independent mean-zero random variables. Then errors accumulate like a random wal
 rather than a sum, and $\gamma_n$ is replaced by
 
 $$
-\tilde{\gamma}_n(\lambda) \;=\; \exp\!\left(\frac{\lambda\sqrt{n}\,u + n u^2}{1-u}\right) - 1
+\tilde{\gamma}_n(\lambda) \;=\; \exp\left(\frac{\lambda\sqrt{n}\,u + n u^2}{1-u}\right) - 1
 \;\approx\; \lambda \sqrt{n}\, u ,
 $$
 
@@ -710,7 +718,7 @@ Measuring each of §5.1's failure modes separately
 |---|---|---|---|
 | **accumulation** | `dot`, `gemv`, `gemm`, residual | **fixes it** | — |
 | **interface** | a reduction spread across calls | not alone | **fixes it** |
-| **dependency** | $\|x\|_2$ as $\sqrt{x^Tx}$ | no | **fixes it** |
+| **dependency** | $\Vert x\Vert_2$ as $\sqrt{x^Tx}$ | no | **fixes it** |
 | **wrapping** | repeated plane rotation | no | no |
 
 The headline number: on an adversarial reduction at $\mathrm{cond} = 2.7 \times
