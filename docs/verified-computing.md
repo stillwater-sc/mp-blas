@@ -364,6 +364,12 @@ matter, and there are exactly three ways to lose it. Distinguishing them is
 essential, because they have different cures — and only one of them is cured by
 better arithmetic.
 
+> **Companion note.** Each of these is developed properly, with derivations,
+> worked examples and the cures that actually apply, in
+> **[interval-arithmetic.md](interval-arithmetic.md)** — including why wrapping
+> is a property of the *data structure* rather than the arithmetic, and what
+> representations avoid it. The summary below is deliberately brief.
+
 **(a) Accumulation.** Each operation rounds outward, so a length-$n$ reduction
 widens $n$ times. The enclosure ends up tracking the *error bound* $\gamma_n
 \mathrm{cond}$ rather than the actual uncertainty. **Curable** — this is what §6
@@ -394,10 +400,24 @@ multiplied by
 |\cos\theta| + |\sin\theta| \in [1, \sqrt{2}],
 ```
 
-peaking at $\theta = 45°$. Apply $k$ rotations and the overestimation compounds
-as $(|\cos\theta|+|\sin\theta|)^k$ — *geometric growth*, from a transformation
-that is exactly norm-preserving. This is a loss in the **representation**, not
-the arithmetic, and **no accumulator and no re-expression** fixes it.
+peaking at $\theta = 45°$ and equal to 1 only at multiples of 90°, where the
+rotation maps axes onto axes and the tilted rectangle *is* axis-aligned.
+
+Because the hull is retaken at every step, starting from the previous step's
+already-inflated box, the overestimation compounds as
+$(|\cos\theta|+|\sin\theta|)^k$ after $k$ rotations — *geometric growth* from a
+transformation that is an exact isometry. Eight 45° rotations compose to the
+identity, so the true set is the original box; interval arithmetic returns one
+$(\sqrt2)^8 = 16$ times wider.
+
+No rounding is involved: redo it exactly, at unlimited precision, and the growth
+is unchanged. Nor is it dependency — $x$ and $y$ each occur once in $cX - sY$, so
+there is nothing to rewrite. What is lost is the **correlation** between the
+components, and a box is by construction a set with no correlation between its
+coordinates. So **no accumulator and no re-expression** fixes it; the cure is a
+representation that can express tilt — zonotopes, parallelepipeds with QR
+reorthogonalization, Taylor models. See
+[interval-arithmetic.md §8](interval-arithmetic.md#8-failure-c-wrapping).
 
 The rest of this note is largely about (a), because (a) is the one that yields.
 
@@ -839,6 +859,9 @@ DOI still redirects correctly; only the two works marked *no DOI* lack one.
 
 ## Related in this repository
 
+- [interval-arithmetic.md](interval-arithmetic.md) — interval arithmetic from
+  first principles, and the three failure modes (accumulation, dependency,
+  wrapping) developed in full, with the cure that applies to each.
 - [dot-product-characterization.md](dot-product-characterization.md) — the
  structural feature vector ($\mathrm{cond}$, $n_{\text{eff}}$, growth, sign
  balance) and the accuracy/reproducibility measurements of §9.1–9.3.
