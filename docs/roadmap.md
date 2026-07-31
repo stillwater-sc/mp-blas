@@ -293,6 +293,14 @@
 
 ## Documentation
 
+- [docs/interval-arithmetic.md](interval-arithmetic.md) -- interval arithmetic from
+  first principles, and the three ways it goes wrong developed in full:
+  accumulation (curable by an exact accumulator), dependency (curable only by
+  rewriting the expression), and wrapping (curable by neither -- it is a property
+  of the data structure). Includes the derivation of the wrapping factor
+  `|cos t| + |sin t|`, why it compounds geometrically under a transformation that
+  is an exact isometry, and the representations that actually avoid it
+  (zonotopes, parallelepiped + QR, Taylor models).
 - [docs/verified-computing.md](verified-computing.md) -- educational primer on the
   why/what/how/history of verified computing. The theory companion to the two
   measurement studies: forward vs backward error, `gamma_n`, Wilkinson's inner
