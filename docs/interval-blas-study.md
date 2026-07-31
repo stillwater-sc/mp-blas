@@ -13,9 +13,9 @@ correction effective, which is what yields results with machine-proved bounds �
 and then measured only accuracy and reproducibility. Interval arithmetic is the
 consumer of that guarantee, and this is where it gets measured.
 
-**Status: all phases complete** (containment gate; `dot`; `ger`/`gemv`; `rot` and
-wrapping; `gemm` and rank-k; verified solve). Phase 1's `nrm2` remains open, for a
-reason worth reading (§14).
+**Status: complete.** Containment gate; `dot`; `ger`/`gemv`; `rot` and wrapping;
+`gemm` and rank-k; verified solve; and `nrm2` (§14), which was Phase 1's deferred
+item and is now closed.
 
 ---
 
@@ -595,30 +595,84 @@ conditioning and one that does not.
 
 ---
 
-## 14. Open: why `nrm2` is not just `dot(x,x)`
+## 14. `nrm2`: why it is not `dot(x,x)`, and what fixes it
 
-Phase 1 lists `nrm2` alongside `dot`. It is not done, and the reason is a genuine
-finding rather than a scheduling note.
+This was Phase 1's deferred item. It is the one obstacle in this study that is
+**mathematical** rather than structural, and it is worth stating carefully because
+it bounds the claim made everywhere else.
 
-Computing `nrm2` as `sqrt(dot(x,x))` hands the *same* interval to both arguments,
+### The problem
+
+Computing `nrm2` as `sqrt(dot(x,x))` hands the same interval to both arguments,
 and interval arithmetic cannot know they are the same object. For an element
-`X = [a,b]` that straddles zero, `dot` therefore computes `X·X`, whose lower
-endpoint is `min(a·b, b·a) = a·b < 0` — whereas the true square `X²` is
-`[0, max(a², b²)]`, which never goes negative. The `dot(x,x)` result is a valid
-enclosure but a needlessly loose one, and the looseness is **structural**: it is
-the dependency problem, and no accumulator fixes it. An exact quire will
-faithfully and exactly accumulate the wrong (over-wide) corner products.
+`X = [a,b]` straddling zero, `dot` therefore evaluates the general product `X·X`,
+whose lower endpoint is `min(a·b, b·a) = a·b < 0` — whereas the true square is
 
-A tight interval `nrm2` therefore needs a dedicated squaring accumulation that
-knows both factors are the same interval, not a reuse of `dot`. It also needs an
-**outward-rounded `sqrt`**, which Universal's `interval` now has.
+```
+X² = [0, max(a², b²)]
+```
 
-That makes `nrm2` the first place in this line of work where the exact dot product
-provably *cannot* help — which is worth having measured, since it bounds what the
-EDP can be claimed to do. Phase 3 (§9) confirmed the second, and finding 9 is a third: not the arithmetic,
-but the operator interface. See the table at the end of §9.
+which can never be negative. This is the **dependency problem**: interval
+arithmetic overestimates whenever a variable occurs more than once. It is not an
+accumulation error, so **no accumulator fixes it** — an exact quire will
+faithfully and exactly accumulate the wrong corner products.
 
----
+### What it costs — the lower bound, not the width
+
+`interval<posit<32,2>>`, n = 16, half-width 0.5, varying how many elements
+straddle zero. Both columns accumulate exactly, so the only difference is
+square-vs-product:
+
+| straddling | `sqrt(dot(x,x))` certifies | `Σ X²` certifies | width ratio |
+|---:|---:|---:|---:|
+| 0.00 | ‖x‖ ≥ 2.2933 | ‖x‖ ≥ 2.2933 | 1.00 |
+| 0.25 | ‖x‖ ≥ 1.7323 | ‖x‖ ≥ 2.0002 | 1.08 |
+| 0.50 | ‖x‖ ≥ 0.7120 | ‖x‖ ≥ 1.5834 | 1.29 |
+| 0.75 | **‖x‖ ≥ 0** | **‖x‖ ≥ 1.2901** | 1.55 |
+| 1.00 | ‖x‖ ≥ 0 | ‖x‖ ≥ 0 | 1.00 |
+
+The width ratio peaks at a modest 1.55×, which understates the damage. The real
+loss is the **lower bound**: at 75% straddling `sqrt(dot(x,x))` certifies
+`‖x‖ ≥ 0`, which proves *nothing* — it cannot establish that the vector is
+nonzero. A lower bound on `‖x‖` is what proves a vector non-degenerate, a residual
+genuinely nonzero, or a matrix not rank-deficient, so losing it is a qualitative
+failure rather than a precision one.
+
+(At 100% straddling both certify 0 — correctly, since the zero vector really is
+in the box. That is the sanity check, not a failure.)
+
+### Two independent defects
+
+`nrm2` needs **both** fixes, and they are separable — which is why
+[`include/sw/mp_blas/interval_nrm2.hpp`](../include/sw/mp_blas/interval_nrm2.hpp)
+provides a square *and* uses a quire pair. With degenerate inputs and no element
+straddling zero, the dependency loss is zero and only accumulation remains:
+
+| n | naive accumulation | quire accumulation |
+|---:|---:|---:|
+| 64 | 3.37e-07 | **2.24e-16** |
+| 4096 | 5.03e-05 | **4.29e-16** |
+
+The familiar Phase 1 picture: naive grows with `n`, the quire is flat.
+
+### A detail worth recording
+
+`square()` clamps its lower bound at zero, and that is not defensive
+programming — it is necessary. Outward rounding drives an **exact zero** lower
+endpoint just below zero (`round_down(0)` is the next value toward −∞), so both
+`[0,m]·[0,m]` and `[0,b]·[0,b]` come back with a tiny *negative* lower bound. A
+square is provably non-negative, so raising it to zero keeps the enclosure valid
+and makes it tighter. Caught by the test asserting `square()` is never negative.
+
+### Where this leaves the claim
+
+`nrm2` is the case that shows the boundary of what the exact dot product does.
+Its accumulation half is fixed completely by the quire, exactly as everywhere
+else in this study. Its dependency half is not touched by the accumulator at all,
+and is fixed only by changing the *expression* — evaluating a square instead of
+asking `dot` for a product. That is the same shape as the interface limit of
+§11.14, and the opposite of the wrapping limit of §9, which no re-expression
+repairs.
 
 ## Related
 

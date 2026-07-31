@@ -30,3 +30,8 @@ mpblas_add_test(test_interval_quire)
 # accumulation changes the constant but not the geometric growth RATE, because
 # wrapping is a loss in the representation rather than in the arithmetic.
 mpblas_add_test(test_interval_rot)
+
+# Interval nrm2 (issue #12): the dependency problem. sqrt(dot(x,x)) evaluates
+# X*X, not X^2, for elements straddling zero -- and no accumulator fixes that.
+# Also pins that accumulation is a separate defect needing the quire.
+mpblas_add_test(test_interval_nrm2)
