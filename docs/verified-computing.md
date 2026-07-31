@@ -11,26 +11,24 @@ arithmetic what is derived here. Where a claim below has been measured, there is
 a pointer to the number.
 
 > **On the math.** GitHub's markdown pass strips a backslash before **any ASCII
-> punctuation character** — the full CommonMark set, not just a few — and it does
-> so *before* the math renderer runs, inside `$…$` and `$$…$$` alike. The failure
-> is usually silent rather than loud: `\;` arrives as a literal `;`, `\,` as `,`,
-> and `\|` as `|`, all of which are valid LaTeX that simply renders *wrong*. Only
-> `\{`/`\}` fail noisily, by breaking `\left`.
+> punctuation character** (the full CommonMark set) *before* the math renderer
+> runs, inside `$…$` and `$$…$$` alike. The failure is usually silent: `\;`
+> arrives as a literal `;` and `\|` as `|`, both of which are valid LaTeX that
+> renders *wrong*. Only `\{`/`\}` fail loudly, by breaking `\left`.
 >
-> This document therefore avoids every backslash-punctuation sequence in math,
-> using letter-only macros that markdown cannot touch:
+> This document therefore keeps to constructs that are both escape-safe and
+> bedrock — `\Vert`, `\lbrace`/`\rbrace`, `\boxed`, `\text`, `\frac`,
+> `\mathrm` — and simply **omits decorative spacing** rather than using `\;`,
+> `\,` or their letter-only aliases. It also avoids multi-row environments such
+> as `aligned`, because the row separator `\\` is eaten by markdown and `\cr`
+> is not universally supported; multi-step derivations are written as lists
+> instead.
 >
-> | avoid | use | |
-> |---|---|---|
-> | `\;` | `\thickspace` | thick space |
-> | `\,` | `\thinspace` | thin space |
-> | `\|` | `\Vert` | norm |
-> | `\{` `\}` | `\lbrace` `\rbrace` | braces, incl. after `\left`/`\right` |
-> | `\\` | `\cr` | row separator in `aligned` |
->
-> Please keep to that when editing. Checking that a formula *parses* is not
-> enough — most of these parse fine and render incorrectly, so a change has to be
-> checked by comparing rendered output before and after escaping.
+> Two cautions for anyone editing. First, checking that a formula *parses* is not
+> enough — most of these mistakes parse cleanly and render incorrectly. Second, a
+> local KaTeX install is **not** a faithful proxy for GitHub's renderer: they can
+> differ in version and in which macros are enabled, so the only conclusive test
+> is to look at the rendered page on GitHub.
 
 > **On citations.** Every DOI in §11 was looked up against the Crossref API and
 > then checked to resolve, rather than recalled — a DOI that silently resolves to
@@ -66,7 +64,7 @@ any indication of how much of that number is meaningful.
 Consider a concrete failure. Take
 
 $$
-x = (10^{16},\thickspace 1,\thickspace -10^{16}), \qquad y = (1,\thickspace 1,\thickspace 1).
+x = (10^{16}, 1, -10^{16}), \qquad y = (1, 1, 1).
 $$
 
 The exact inner product is $x^Ty = 1$. Evaluated left to right in IEEE binary64:
@@ -84,13 +82,13 @@ Three responses to this are possible, and the history of the field is largely th
 history of the third:
 
 1. **Ignore it.** Works more often than it should, which is itself a discovery
-   (§3) — but offers no way to know *when* it fails.
+ (§3) — but offers no way to know *when* it fails.
 2. **Estimate it.** Run the computation twice at different precisions, or perturb
-   the input and see how much the output moves. Cheap, informative, and *not a
-   proof*: it can be fooled.
+ the input and see how much the output moves. Cheap, informative, and *not a
+ proof*: it can be fooled.
 3. **Prove it.** Return an interval, or a bound, that is guaranteed to contain
-   the exact answer. This is **verified computing**, also called *validated
-   numerics* or *result verification*.
+ the exact answer. This is **verified computing**, also called *validated
+ numerics* or *result verification*.
 
 The third is what this note is about. Its central difficulty is that a
 guaranteed bound is worthless if it is not also **tight**: the interval
@@ -134,7 +132,7 @@ $$
 tractable — *of what nearby problem is our answer the exact solution?*
 
 $$
-E_{\mathrm{bwd}} = \min\left\lbrace \frac{\Vert \Delta x\Vert}{\Vert x\Vert} \thickspace :\thickspace \hat{y} = f(x + \Delta x) \right\rbrace.
+E_{\mathrm{bwd}} = \min\left\lbrace \frac{\Vert \Delta x\Vert}{\Vert x\Vert} : \hat{y} = f(x + \Delta x) \right\rbrace.
 $$
 
 An algorithm is **backward stable** if $E_{\mathrm{bwd}}$ is of order $u$: the
@@ -155,16 +153,16 @@ The three quantities are linked by the single most useful rule of thumb in
 numerical analysis:
 
 $$
-\boxed{\thickspace \text{forward error} \thickspace \lesssim\thickspace \text{condition number} \times \text{backward error}\thickspace}
+\boxed{\text{forward error} \lesssim \text{condition number} \times \text{backward error}}
 $$
 
 This separates concerns cleanly, and the separation is the point:
 
 - **Backward error** is the algorithm's responsibility. A good algorithm makes it
-  $O(u)$.
+ $O(u)$.
 - **Condition number** is the problem's property. No algorithm can improve it.
 - **Forward error** — what the user actually cares about — is the product, and so
-  can be large *even for a perfect algorithm* if the problem is ill-conditioned.
+ can be large *even for a perfect algorithm* if the problem is ill-conditioned.
 
 Turing introduced the condition number in this sense in 1948, in "Rounding-off
 errors in matrix processes" — the same paper in which he described what we now
@@ -200,8 +198,8 @@ For Gaussian elimination with partial pivoting, Wilkinson's 1961 analysis
 $\hat{x}$ satisfies
 
 $$
-(A + \Delta A)\thinspace \hat{x} = b, \qquad
-\Vert \Delta A\Vert_\infty \le \gamma_{3n}\thinspace \rho_n \Vert A\Vert_\infty,
+(A + \Delta A) \hat{x} = b, \qquad
+\Vert \Delta A\Vert_\infty \le \gamma_{3n} \rho_n \Vert A\Vert_\infty,
 $$
 
 where $\rho_n$ is the *growth factor* — how much entries swell during
@@ -234,13 +232,9 @@ analysis is built from this one abbreviation.
 Wilkinson also gave the field its first *cure* rather than diagnosis. Given an
 approximate solution $\hat{x}$ of $Ax = b$:
 
-$$
-\begin{aligned}
-r &= b - A\hat{x} && \text{(residual)} \cr
-A d &= r && \text{(solve with the existing factorization — cheap)} \cr
-\hat{x} &\leftarrow \hat{x} + d && \text{(correct)}
-\end{aligned}
-$$
+1. **residual** — $r = b - A\hat{x}$
+2. **solve**, reusing the existing factorization (cheap) — $A d = r$
+3. **correct** — $\hat{x} \leftarrow \hat{x} + d$
 
 The classical result, with the residual computed in **extended precision**: if
 $\kappa(A) u < 1$, the refined solution attains
@@ -250,7 +244,7 @@ $$
 $$
 
 **independent of $\kappa(A)$**. Compute the residual in working precision instead
-and refinement stagnates at $\approx \kappa(A)\thinspace u$.
+and refinement stagnates at $\approx \kappa(A) u$.
 
 The reason is exactly the failure of §1. Near convergence $A\hat{x} \approx b$, so
 forming $b - A\hat{x}$ is catastrophic cancellation: the leading digits agree and
@@ -271,7 +265,7 @@ Apply the model of §2.1 to $x^Ty = \sum_{i=1}^n x_i y_i$. Every product rounds,
 every partial sum rounds, and the errors accumulate:
 
 $$
-\boxed{\thickspace \bigl|\mathrm{fl}(x^Ty) - x^Ty\bigr| \thickspace \le\thickspace \gamma_n \thinspace |x|^T|y| \thickspace}
+\boxed{\bigl|\mathrm{fl}(x^Ty) - x^Ty\bigr| \le \gamma_n |x|^T|y|}
 $$
 
 where $|x|$ denotes componentwise absolute value, so
@@ -293,13 +287,13 @@ differ by exactly the amount of cancellation in the sum. Dividing through:
 
 $$
 \frac{\bigl|\mathrm{fl}(x^Ty) - x^Ty\bigr|}{|x^Ty|}
-\thickspace \le\thickspace \frac{\gamma_n}{2} \cdot \underbrace{\frac{2\thinspace |x|^T|y|}{|x^Ty|}}_{\displaystyle \mathrm{cond}(x,y)}
+ \le \frac{\gamma_n}{2} \cdot \underbrace{\frac{2 |x|^T|y|}{|x^Ty|}}_{\displaystyle \mathrm{cond}(x,y)}
 $$
 
 The quantity
 
 $$
-\boxed{\thickspace \mathrm{cond}(x,y) = \frac{2\thinspace |x|^T|y|}{|x^Ty|}\thickspace}
+\boxed{\mathrm{cond}(x,y) = \frac{2 |x|^T|y|}{|x^Ty|}}
 $$
 
 is the **condition number of the dot product**. It has a clean interpretation:
@@ -343,11 +337,11 @@ founded the field. The idea is disarmingly simple: replace each number by an
 interval known to contain it, and define arithmetic so containment is preserved.
 
 $$
-[a,b] + [c,d] = [a+c,\thickspace b+d], \qquad
-[a,b] - [c,d] = [a-d,\thickspace b-c],
+[a,b] + [c,d] = [a+c, b+d], \qquad
+[a,b] - [c,d] = [a-d, b-c],
 $$
 $$
-[a,b] \times [c,d] = [\min(ac,ad,bc,bd),\thickspace \max(ac,ad,bc,bd)].
+[a,b] \times [c,d] = [\min(ac,ad,bc,bd), \max(ac,ad,bc,bd)].
 $$
 
 On a real computer each endpoint must additionally be rounded **outward** — the
@@ -356,7 +350,7 @@ lost. The resulting property, the **Fundamental Theorem of Interval
 Arithmetic**, is what makes the whole thing worth doing:
 
 $$
-\boxed{\thickspace \forall\thinspace x \in X,\thickspace y \in Y: \quad x \circ y \thickspace \in\thickspace \mathrm{fl}(X \circ Y)\thickspace}
+\boxed{\forall x \in X, y \in Y: \quad x \circ y \in \mathrm{fl}(X \circ Y)}
 $$
 
 evaluated over the exact reals. Compose operations and containment composes: the
@@ -378,7 +372,7 @@ is for.
 variable as independent. So for $X = [1,2]$,
 
 $$
-X - X = [1-2,\thickspace 2-1] = [-1, 1] \thickspace \ne\thickspace [0,0],
+X - X = [1-2, 2-1] = [-1, 1] \ne [0,0],
 $$
 
 and for $X = [-1,2]$,
@@ -396,7 +390,7 @@ as one. Rotate a box by $\theta$ and take the axis-aligned hull: the width is
 multiplied by
 
 $$
-|\cos\theta| + |\sin\theta| \thickspace \in\thickspace [1, \sqrt{2}],
+|\cos\theta| + |\sin\theta| \in [1, \sqrt{2}],
 $$
 
 peaking at $\theta = 45°$. Apply $k$ rotations and the overestimation compounds
@@ -423,29 +417,29 @@ easier to state than it was to win:
 ### 6.1 The argument, in four steps
 
 1. IEEE 754 correctly rounds the four operations: one rounding, exact result
-   rounded once.
+ rounded once.
 2. The dot product is the operation from which linear algebra is built (§4.3),
-   and it is **not** among them. Chaining correctly-rounded operations does not
-   yield a correctly-rounded dot product.
+ and it is **not** among them. Chaining correctly-rounded operations does not
+ yield a correctly-rounded dot product.
 3. Therefore add the **exact dot product** (EDP) as a fifth operation:
 
 $$
-\boxed{\thickspace \mathrm{EDP}(x,y) = \mathrm{round}\left(\sum_{i=1}^{n} x_i y_i\right)\thickspace}
+\boxed{\mathrm{EDP}(x,y) = \mathrm{round}\left(\sum_{i=1}^{n} x_i y_i\right)}
 $$
 
-   with the sum formed *exactly* and rounded exactly once at the end. The error is
-   then $\le u$ **relative to the result**, with no $\gamma_n$ and no
-   $\mathrm{cond}$ — compare against §4.2:
+ with the sum formed *exactly* and rounded exactly once at the end. The error is
+ then $\le u$ **relative to the result**, with no $\gamma_n$ and no
+ $\mathrm{cond}$ — compare against §4.2:
 
 $$
-\underbrace{\frac{\gamma_n}{2}\thinspace \mathrm{cond}(x,y)}_{\text{conventional}}
+\underbrace{\frac{\gamma_n}{2} \mathrm{cond}(x,y)}_{\text{conventional}}
 \qquad\text{versus}\qquad
 \underbrace{u}_{\text{EDP}}
 $$
 
 4. The payoff is not aesthetic. An exact residual makes **defect correction**
-   effective (§3.4, §7), and defect correction plus interval arithmetic yields
-   **verified enclosures** — automatically.
+ effective (§3.4, §7), and defect correction plus interval arithmetic yields
+ **verified enclosures** — automatically.
 
 ### 6.2 The implementation: a complete register
 
@@ -456,8 +450,8 @@ spanning that range, plus a few guard bits for carries, can hold **any** sum of
 **any** number of such products with no rounding at all:
 
 $$
-\text{width} \thickspace \approx\thickspace \underbrace{2|e_{\min}| + 2f}_{\text{below the point}}
-\thickspace +\thickspace \underbrace{2 e_{\max}}_{\text{above}} \thickspace +\thickspace \underbrace{k}_{\text{carry guard}}
+\text{width} \approx \underbrace{2|e_{\min}| + 2f}_{\text{below the point}}
+ + \underbrace{2 e_{\max}}_{\text{above}} + \underbrace{k}_{\text{carry guard}}
 \quad\text{bits.}
 $$
 
@@ -485,9 +479,9 @@ reasoning is
 
 $$
 \text{exact dot product}
-\thickspace \Longrightarrow\thickspace \text{accurate residual}
-\thickspace \Longrightarrow\thickspace \text{effective defect correction}
-\thickspace \Longrightarrow\thickspace \text{verified enclosure}.
+ \Longrightarrow \text{accurate residual}
+ \Longrightarrow \text{effective defect correction}
+ \Longrightarrow \text{verified enclosure}.
 $$
 
 This shows in what he built: the ACRITH library for IBM System/370 (early
@@ -527,34 +521,34 @@ extensively by Rump — is to *not* compute in intervals at all. Instead:
 
 1. Compute an approximate solution $\tilde{x}$ in ordinary floating point. Fast.
 2. Compute an approximate inverse $R \approx A^{-1}$, also in floating point.
-   $R$ need not be accurate; it is a *preconditioner*.
+ $R$ need not be accurate; it is a *preconditioner*.
 3. Then **prove**, with interval arithmetic used only for the proof, that the
-   true solution lies near $\tilde{x}$.
+ true solution lies near $\tilde{x}$.
 
 Define the residual and the iteration matrix
 
 $$
-z = R\thinspace (b - A\tilde{x}), \qquad C = I - RA .
+z = R (b - A\tilde{x}), \qquad C = I - RA .
 $$
 
 $C$ measures how far $R$ is from a true inverse. The **Krawczyk operator** is
 
 $$
-K(X) = z + C\thinspace X ,
+K(X) = z + C X ,
 $$
 
 and the theorem is:
 
 $$
-\boxed{\thickspace K(X) \subseteq \mathrm{int}(X)
-\thickspace \Longrightarrow\thickspace A \text{ is nonsingular, and } x^* \in \tilde{x} + X. \thickspace}
+\boxed{K(X) \subseteq \mathrm{int}(X)
+ \Longrightarrow A \text{is nonsingular, and} x^* \in \tilde{x} + X.}
 $$
 
 A single inclusion test proves both **existence** and **uniqueness** of the
 solution, and bounds it. When $\Vert C\Vert_\infty < 1$ the enclosure radius satisfies
 
 $$
-\Vert X\Vert_\infty \thickspace \lesssim\thickspace \frac{\Vert z\Vert_\infty}{1 - \Vert C\Vert_\infty}.
+\Vert X\Vert_\infty \lesssim \frac{\Vert z\Vert_\infty}{1 - \Vert C\Vert_\infty}.
 $$
 
 ### 7.3 Where the exact dot product enters
@@ -562,11 +556,11 @@ $$
 Look at what governs each factor:
 
 - $\Vert C\Vert_\infty < 1$ is the **feasibility** condition. It depends on the quality
-  of the preconditioner $R$ — i.e. on $\kappa(A)$ and the precision of the
-  inversion. The EDP does not help here.
+ of the preconditioner $R$ — i.e. on $\kappa(A)$ and the precision of the
+ inversion. The EDP does not help here.
 - $\Vert z\Vert_\infty$ sets the **tightness**. And $z$ is a preconditioned *residual*,
-  computed at the point where $A\tilde{x} \approx b$ — catastrophic cancellation,
-  $\mathrm{cond}$ of order $\kappa(A)$.
+ computed at the point where $A\tilde{x} \approx b$ — catastrophic cancellation,
+ $\mathrm{cond}$ of order $\kappa(A)$.
 
 Computed in working precision, $z$ is dominated by its own rounding error, and
 the enclosure width degrades as $\kappa(A) u$ no matter how good $\tilde x$ was.
@@ -615,8 +609,8 @@ independent mean-zero random variables. Then errors accumulate like a random wal
 rather than a sum, and $\gamma_n$ is replaced by
 
 $$
-\tilde{\gamma}_n(\lambda) \thickspace =\thickspace \exp\left(\frac{\lambda\sqrt{n}\thinspace u + n u^2}{1-u}\right) - 1
-\thickspace \approx\thickspace \lambda \sqrt{n}\thinspace u ,
+\tilde{\gamma}_n(\lambda) = \exp\left(\frac{\lambda\sqrt{n} u + n u^2}{1-u}\right) - 1
+ \approx \lambda \sqrt{n} u ,
 $$
 
 holding with a probability controlled by $\lambda$. The deterministic $n$ becomes
@@ -689,12 +683,12 @@ Holding $\mathrm{cond}$ fixed and sweeping $n$ over a 256× range
 ([characterization §4.3](dot-product-characterization.md)):
 
 - a **fixed-precision** `double` accumulator grew $5.6\times$ — consistent with
-  Higham & Mary's $\sqrt{n}$ (which predicts $16\times$) and refuting the
-  classical $n$ (which predicts $256\times$);
+ Higham & Mary's $\sqrt{n}$ (which predicts $16\times$) and refuting the
+ classical $n$ (which predicts $256\times$);
 - a **tapered-precision** posit accumulator grew $\approx 1300\times$ —
-  *superlinearly*, because posit's local unit roundoff coarsens as the running
-  sum moves away from $1$. No constant-$u$ model covers this. For posit, "unit
-  roundoff" is not a single number.
+ *superlinearly*, because posit's local unit roundoff coarsens as the running
+ sum moves away from $1$. No constant-$u$ model covers this. For posit, "unit
+ roundoff" is not a single number.
 
 ### 9.4 The verified solve, and a lesson about experimental design
 
@@ -783,12 +777,12 @@ arithmetic work" — and it is the one the measurements support.
 Read the table as one argument developing over seventy-five years:
 
 - **Wilkinson** asked *how wrong is it, and why is that acceptable?* — and gave
-  the field backward error analysis, plus the observation that an accurate
-  residual makes correction possible.
+ the field backward error analysis, plus the observation that an accurate
+ residual makes correction possible.
 - **Kulisch** asked *what would the hardware have to provide for the bound to be
-  provable and tight?* — and answered: one more operation, exactly rounded.
+ provable and tight?* — and answered: one more operation, exactly rounded.
 - **Higham** asked *what is actually true in practice?* — and made the bounds
-  usable, then realistic, then precision-aware.
+ usable, then realistic, then precision-aware.
 
 They are three answers to the same question at three different levels: analysis,
 architecture, and engineering practice.
@@ -845,10 +839,10 @@ DOI still redirects correctly; only the two works marked *no DOI* lack one.
 ## Related in this repository
 
 - [dot-product-characterization.md](dot-product-characterization.md) — the
-  structural feature vector ($\mathrm{cond}$, $n_{\text{eff}}$, growth, sign
-  balance) and the accuracy/reproducibility measurements of §9.1–9.3.
+ structural feature vector ($\mathrm{cond}$, $n_{\text{eff}}$, growth, sign
+ balance) and the accuracy/reproducibility measurements of §9.1–9.3.
 - [interval-blas-study.md](interval-blas-study.md) — the interval BLAS: enclosure
-  tightness across levels 1–3, the three limits of §5.1 measured separately, and
-  the verified solve of §9.4.
+ tightness across levels 1–3, the three limits of §5.1 measured separately, and
+ the verified solve of §9.4.
 - [level1-accumulator-study.md](level1-accumulator-study.md) — accumulator width
-  versus reduction length, the empirical starting point for all of the above.
+ versus reduction length, the empirical starting point for all of the above.
