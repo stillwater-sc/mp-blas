@@ -10,25 +10,26 @@ This note is the theory companion to the two measurement studies in this repo �
 arithmetic what is derived here. Where a claim below has been measured, there is
 a pointer to the number.
 
-> **On the math.** GitHub's markdown pass strips a backslash before **any ASCII
-> punctuation character** (the full CommonMark set) *before* the math renderer
-> runs, inside `$…$` and `$$…$$` alike. The failure is usually silent: `\;`
-> arrives as a literal `;` and `\|` as `|`, both of which are valid LaTeX that
-> renders *wrong*. Only `\{`/`\}` fail loudly, by breaking `\left`.
+> **On the math.** Display formulas in this document use ```` ```math ```` fenced
+> blocks, not `$$…$$`. That is deliberate. Markdown *preprocesses* the contents of
+> `$…$` and `$$…$$` before the math renderer ever sees them, in at least two ways
+> that corrupt LaTeX silently:
 >
-> This document therefore keeps to constructs that are both escape-safe and
-> bedrock — `\Vert`, `\lbrace`/`\rbrace`, `\boxed`, `\text`, `\frac`,
-> `\mathrm` — and simply **omits decorative spacing** rather than using `\;`,
-> `\,` or their letter-only aliases. It also avoids multi-row environments such
-> as `aligned`, because the row separator `\\` is eaten by markdown and `\cr`
-> is not universally supported; multi-step derivations are written as lists
-> instead.
+> - **backslash escapes** — a backslash before any ASCII punctuation is stripped,
+>   so `\;` arrives as `;` and `\|` as `|`; both are valid LaTeX that renders
+>   *wrong*, while `\{` breaks `\left` outright;
+> - **emphasis** — `_` is markdown's italic marker, and a `_` flanked by
+>   punctuation can pair with another one. `\underbrace{x}_{a} + \underbrace{y}_{b}`
+>   loses *both* subscripts to an italic span.
 >
-> Two cautions for anyone editing. First, checking that a formula *parses* is not
-> enough — most of these mistakes parse cleanly and render incorrectly. Second, a
-> local KaTeX install is **not** a faithful proxy for GitHub's renderer: they can
-> differ in version and in which macros are enabled, so the only conclusive test
-> is to look at the rendered page on GitHub.
+> Inside a fenced block markdown does no processing at all, which removes the
+> whole class of problem. Inline `$…$` is still preprocessed, so keep inline math
+> simple: no `\;`, no `\|`, and no punctuation-flanked `_` such as `}_{`.
+>
+> Two cautions for anyone editing. Checking that a formula *parses* is not enough,
+> because these failures are silent. And a local KaTeX install is **not** a
+> faithful proxy for GitHub's renderer — they can differ in version and in which
+> macros are enabled — so the only conclusive test is the rendered page on GitHub.
 
 > **On citations.** Every DOI in §11 was looked up against the Crossref API and
 > then checked to resolve, rather than recalled — a DOI that silently resolves to
@@ -63,15 +64,15 @@ any indication of how much of that number is meaningful.
 
 Consider a concrete failure. Take
 
-$$
+```math
 x = (10^{16}, 1, -10^{16}), \qquad y = (1, 1, 1).
-$$
+```
 
 The exact inner product is $x^Ty = 1$. Evaluated left to right in IEEE binary64:
 
-$$
+```math
 \mathrm{fl}(10^{16} + 1) = 10^{16}, \qquad \mathrm{fl}(10^{16} - 10^{16}) = 0.
-$$
+```
 
 The computed answer is $0$. Not "1 with a small error" — the answer has **no
 correct digits**, and nothing in the result says so. The `1` was *swamped*: added
@@ -109,10 +110,10 @@ representable number. For IEEE binary64, $u = 2^{-53} \approx 1.11 \times
 
 The standard model says every basic operation is correctly rounded:
 
-$$
+```math
 \mathrm{fl}(a \circ b) = (a \circ b)(1 + \delta), \qquad |\delta| \le u,
 \qquad \circ \in \lbrace+, -, \times, \div\rbrace.
-$$
+```
 
 This is exactly what IEEE 754 guarantees for $+, -, \times, \div, \sqrt{\cdot}$.
 Note carefully what it does **not** cover: a *sequence* of operations, such as a
@@ -124,16 +125,16 @@ Let $y = f(x)$ be what we want and $\hat{y}$ what we compute.
 
 **Forward error** is the obvious question — how wrong is the answer?
 
-$$
+```math
 E_{\mathrm{fwd}} = \frac{\Vert \hat{y} - y\Vert}{\Vert y\Vert}.
-$$
+```
 
 **Backward error** is the non-obvious question, and the one that made the field
 tractable — *of what nearby problem is our answer the exact solution?*
 
-$$
+```math
 E_{\mathrm{bwd}} = \min\left\lbrace \frac{\Vert \Delta x\Vert}{\Vert x\Vert} : \hat{y} = f(x + \Delta x) \right\rbrace.
-$$
+```
 
 An algorithm is **backward stable** if $E_{\mathrm{bwd}}$ is of order $u$: the
 computed answer is the exact answer to a problem indistinguishable from the one
@@ -144,17 +145,17 @@ posed.
 The **condition number** measures how much the *problem* amplifies input
 perturbations — a property of $f$ and $x$, with nothing to do with arithmetic:
 
-$$
+```math
 \kappa(f, x) = \lim_{\epsilon \to 0} \sup_{\Vert \Delta x\Vert \le \epsilon \Vert x\Vert}
 \frac{\Vert f(x + \Delta x) - f(x)\Vert}{\epsilon \Vert f(x)\Vert}.
-$$
+```
 
 The three quantities are linked by the single most useful rule of thumb in
 numerical analysis:
 
-$$
+```math
 \boxed{\text{forward error} \lesssim \text{condition number} \times \text{backward error}}
-$$
+```
 
 This separates concerns cleanly, and the separation is the point:
 
@@ -197,10 +198,10 @@ For Gaussian elimination with partial pivoting, Wilkinson's 1961 analysis
 ("Error analysis of direct methods of matrix inversion") gives: the computed
 $\hat{x}$ satisfies
 
-$$
+```math
 (A + \Delta A) \hat{x} = b, \qquad
 \Vert \Delta A\Vert_\infty \le \gamma_{3n} \rho_n \Vert A\Vert_\infty,
-$$
+```
 
 where $\rho_n$ is the *growth factor* — how much entries swell during
 elimination — and $\gamma_n$ is the notation introduced below.
@@ -219,10 +220,10 @@ the 1970 Turing Award.
 Wilkinson's bookkeeping device, now universal. When $n$ rounding errors
 accumulate multiplicatively,
 
-$$
+```math
 \prod_{i=1}^{n} (1 + \delta_i)^{\pm 1} = 1 + \theta_n, \qquad
 |\theta_n| \le \gamma_n := \frac{n u}{1 - n u}, \qquad (n u < 1).
-$$
+```
 
 For $nu \ll 1$, $\gamma_n \approx nu$. The whole apparatus of classical error
 analysis is built from this one abbreviation.
@@ -239,9 +240,9 @@ approximate solution $\hat{x}$ of $Ax = b$:
 The classical result, with the residual computed in **extended precision**: if
 $\kappa(A) u < 1$, the refined solution attains
 
-$$
+```math
 \frac{\Vert \hat{x} - x\Vert_\infty}{\Vert x\Vert_\infty} \approx u,
-$$
+```
 
 **independent of $\kappa(A)$**. Compute the residual in working precision instead
 and refinement stagnates at $\approx \kappa(A) u$.
@@ -264,18 +265,18 @@ measure it in §9.4.
 Apply the model of §2.1 to $x^Ty = \sum_{i=1}^n x_i y_i$. Every product rounds,
 every partial sum rounds, and the errors accumulate:
 
-$$
+```math
 \boxed{\bigl|\mathrm{fl}(x^Ty) - x^Ty\bigr| \le \gamma_n |x|^T|y|}
-$$
+```
 
 where $|x|$ denotes componentwise absolute value, so
 $|x|^T|y| = \sum_i |x_i||y_i|$.
 
 The bound is also available in backward form,
 
-$$
+```math
 \mathrm{fl}(x^Ty) = (x + \Delta x)^T y, \qquad |\Delta x| \le \gamma_n |x|,
-$$
+```
 
 i.e. the computed dot product is the exact dot product of a slightly perturbed
 $x$ — backward stable, in the sense of §2.2.
@@ -285,16 +286,16 @@ $x$ — backward stable, in the sense of §2.2.
 The error is bounded by $\gamma_n |x|^T|y|$, **not** by $\gamma_n |x^Ty|$. Those
 differ by exactly the amount of cancellation in the sum. Dividing through:
 
-$$
+```math
 \frac{\bigl|\mathrm{fl}(x^Ty) - x^Ty\bigr|}{|x^Ty|}
  \le \frac{\gamma_n}{2} \cdot \underbrace{\frac{2 |x|^T|y|}{|x^Ty|}}_{\displaystyle \mathrm{cond}(x,y)}
-$$
+```
 
 The quantity
 
-$$
+```math
 \boxed{\mathrm{cond}(x,y) = \frac{2 |x|^T|y|}{|x^Ty|}}
-$$
+```
 
 is the **condition number of the dot product**. It has a clean interpretation:
 $|x|^T|y|$ is the information the inputs carry in, $|x^Ty|$ is what survives into
@@ -336,22 +337,22 @@ Ramon E. Moore's PhD thesis (Stanford, 1962) and book *Interval Analysis* (1966)
 founded the field. The idea is disarmingly simple: replace each number by an
 interval known to contain it, and define arithmetic so containment is preserved.
 
-$$
+```math
 [a,b] + [c,d] = [a+c, b+d], \qquad
 [a,b] - [c,d] = [a-d, b-c],
-$$
-$$
+```
+```math
 [a,b] \times [c,d] = [\min(ac,ad,bc,bd), \max(ac,ad,bc,bd)].
-$$
+```
 
 On a real computer each endpoint must additionally be rounded **outward** — the
 lower bound toward $-\infty$, the upper toward $+\infty$ — or the guarantee is
 lost. The resulting property, the **Fundamental Theorem of Interval
 Arithmetic**, is what makes the whole thing worth doing:
 
-$$
+```math
 \boxed{\forall x \in X, y \in Y: \quad x \circ y \in \mathrm{fl}(X \circ Y)}
-$$
+```
 
 evaluated over the exact reals. Compose operations and containment composes: the
 final interval provably contains the exact answer.
@@ -371,15 +372,15 @@ is for.
 **(b) The dependency problem.** Interval arithmetic treats every occurrence of a
 variable as independent. So for $X = [1,2]$,
 
-$$
+```math
 X - X = [1-2, 2-1] = [-1, 1] \ne [0,0],
-$$
+```
 
 and for $X = [-1,2]$,
 
-$$
+```math
 X \cdot X = [-2, 4] \quad \text{whereas} \quad X^2 = [0, 4].
-$$
+```
 
 The interval is correct but needlessly wide, and **no accumulator fixes this** —
 an exact accumulator will faithfully and exactly accumulate the wrong corner
@@ -389,9 +390,9 @@ products. The cure is to rewrite the *expression*.
 as one. Rotate a box by $\theta$ and take the axis-aligned hull: the width is
 multiplied by
 
-$$
+```math
 |\cos\theta| + |\sin\theta| \in [1, \sqrt{2}],
-$$
+```
 
 peaking at $\theta = 45°$. Apply $k$ rotations and the overestimation compounds
 as $(|\cos\theta|+|\sin\theta|)^k$ — *geometric growth*, from a transformation
@@ -423,19 +424,19 @@ easier to state than it was to win:
  yield a correctly-rounded dot product.
 3. Therefore add the **exact dot product** (EDP) as a fifth operation:
 
-$$
+```math
 \boxed{\mathrm{EDP}(x,y) = \mathrm{round}\left(\sum_{i=1}^{n} x_i y_i\right)}
-$$
+```
 
  with the sum formed *exactly* and rounded exactly once at the end. The error is
  then $\le u$ **relative to the result**, with no $\gamma_n$ and no
  $\mathrm{cond}$ — compare against §4.2:
 
-$$
+```math
 \underbrace{\frac{\gamma_n}{2} \mathrm{cond}(x,y)}_{\text{conventional}}
 \qquad\text{versus}\qquad
 \underbrace{u}_{\text{EDP}}
-$$
+```
 
 4. The payoff is not aesthetic. An exact residual makes **defect correction**
  effective (§3.4, §7), and defect correction plus interval arithmetic yields
@@ -449,11 +450,11 @@ between $\mathrm{minpos}^2$ and $\mathrm{maxpos}^2$. A fixed-point accumulator
 spanning that range, plus a few guard bits for carries, can hold **any** sum of
 **any** number of such products with no rounding at all:
 
-$$
+```math
 \text{width} \approx \underbrace{2|e_{\min}| + 2f}_{\text{below the point}}
  + \underbrace{2 e_{\max}}_{\text{above}} + \underbrace{k}_{\text{carry guard}}
 \quad\text{bits.}
-$$
+```
 
 For binary64 this is on the order of a couple of thousand bits — large by
 register standards, trivial by memory standards, and **fixed**: it does not grow
@@ -477,12 +478,12 @@ His goal was **validity**: computations whose results come with machine-proved
 enclosures, produced automatically rather than by hand analysis. The line of
 reasoning is
 
-$$
+```math
 \text{exact dot product}
  \Longrightarrow \text{accurate residual}
  \Longrightarrow \text{effective defect correction}
  \Longrightarrow \text{verified enclosure}.
-$$
+```
 
 This shows in what he built: the ACRITH library for IBM System/370 (early
 1980s), and the *XSC* language family (PASCAL-XSC, C-XSC, ACRITH-XSC) — all of
@@ -527,29 +528,29 @@ extensively by Rump — is to *not* compute in intervals at all. Instead:
 
 Define the residual and the iteration matrix
 
-$$
+```math
 z = R (b - A\tilde{x}), \qquad C = I - RA .
-$$
+```
 
 $C$ measures how far $R$ is from a true inverse. The **Krawczyk operator** is
 
-$$
+```math
 K(X) = z + C X ,
-$$
+```
 
 and the theorem is:
 
-$$
+```math
 \boxed{K(X) \subseteq \mathrm{int}(X)
  \Longrightarrow A \text{is nonsingular, and} x^* \in \tilde{x} + X.}
-$$
+```
 
 A single inclusion test proves both **existence** and **uniqueness** of the
 solution, and bounds it. When $\Vert C\Vert_\infty < 1$ the enclosure radius satisfies
 
-$$
+```math
 \Vert X\Vert_\infty \lesssim \frac{\Vert z\Vert_\infty}{1 - \Vert C\Vert_\infty}.
-$$
+```
 
 ### 7.3 Where the exact dot product enters
 
@@ -608,10 +609,10 @@ replaced the worst case with a probabilistic model: treat the $\delta_i$ as
 independent mean-zero random variables. Then errors accumulate like a random walk
 rather than a sum, and $\gamma_n$ is replaced by
 
-$$
+```math
 \tilde{\gamma}_n(\lambda) = \exp\left(\frac{\lambda\sqrt{n} u + n u^2}{1-u}\right) - 1
  \approx \lambda \sqrt{n} u ,
-$$
+```
 
 holding with a probability controlled by $\lambda$. The deterministic $n$ becomes
 $\sqrt{n}$ — a difference of $1000\times$ at $n = 10^6$.
