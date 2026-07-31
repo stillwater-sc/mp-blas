@@ -291,6 +291,18 @@
   correction -- and everything it cannot do (dependency, wrapping, a failed
   factorization) falls outside it.
 
+## Documentation
+
+- [docs/verified-computing.md](verified-computing.md) -- educational primer on the
+  why/what/how/history of verified computing. The theory companion to the two
+  measurement studies: forward vs backward error, `gamma_n`, Wilkinson's inner
+  product bound and the dot-product condition number, interval arithmetic and its
+  three failure modes (accumulation, dependency, wrapping), Kulisch's exact dot
+  product as a fifth basic operation, the Krawczyk operator, and Higham's
+  probabilistic and mixed-precision results -- with a timeline placing each
+  contribution in time and purpose, and pointers from each derivation to the
+  measurement that confirms it.
+
 ## Related
 
 - MTL5 mixed-precision `dot`/`mult` accumulator seam
