@@ -91,7 +91,35 @@ order-dependent, and that is exactly what the data below shows.
 
 ## 2. What information goes in, and what survives
 
-This is the part of the issue with a crisp textbook answer.
+This is the **standard absolute backward/forward error bound for an inner product (dot product)** in floating-point arithmetic.
+
+It bounds the absolute pointwise error between the exact dot product of two $n$-dimensional vectors $\mathbf{x}, \mathbf{y} \in \mathbb{R}^n$ and the result obtained via floating-point evaluation $\text{fl}(\mathbf{x}^T \mathbf{y})$.
+
+---
+
+### Key Components
+
+* **$\text{fl}(\mathbf{x}^T \mathbf{y})$**: The computed floating-point dot product of vectors $\mathbf{x}$ and $\mathbf{y}$.
+* **$\mathbf{x}^T \mathbf{y}$**: The exact mathematical dot product $\sum_{i=1}^n x_i y_i$.
+* **$\vert{}\mathbf{x}\vert{}^T \vert{}\mathbf{y}\vert{}$**: The inner product of the absolute values of the components, $\sum_{i=1}^n \vert{}x_i\vert{} \vert{}y_i\vert{}$. This term captures potential **catastrophic cancellation**—if $\mathbf{x}^T \mathbf{y}$ suffers from cancellation, $\vert{}\mathbf{x}\vert{}^T \vert{}\mathbf{y}\vert{}$ remains large, indicating a large relative error even if the absolute error bound holds.
+* **$u$**: The **unit roundoff** (or machine epsilon $\varepsilon_{\text{mach}}$ depending on convention, typically $u = \frac{1}{2} \beta^{1-t}$).
+* **$\gamma_n$**: The standard high-order error constant used in rounding analysis, defined as:
+
+$$\gamma_n = \frac{n u}{1 - n u}$$
+
+
+
+*(valid under the assumption that $n u < 1$)*.
+
+---
+
+### Context & Usage
+
+This exact bound is a classic result from Higham's *Accuracy and Stability of Numerical Algorithms* (Chapter 3). It shows that under standard IEEE 754 arithmetic with unit roundoff $u$, evaluating an $n$-term sum or dot product introduces accumulated rounding errors bounded linearly by $n$ to first order:
+
+$$\gamma_n = n u + \mathcal{O}(u^2)$$
+
+When converted to relative error, it demonstrates that dot products are **forward stable** when the vectors have non-negative entries ($\vert{}\mathbf{x}\vert{}^T \vert{}\mathbf{y}\vert{} = \vert{}\mathbf{x}^T \mathbf{y}\vert{}$), but can lose relative precision under catastrophic cancellation when components alternate signs.
 
 Wilkinson's classical bound for an inner product accumulated in a format with
 unit roundoff `u` (see Higham, *Accuracy and Stability of Numerical Algorithms*,
