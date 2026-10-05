@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 4.0)
+cmake_minimum_required(VERSION 3.22...4.2)
 
 if(NOT DEFINED MPBLAS_MAJOR)
 	set(MPBLAS_MAJOR 0)
@@ -89,12 +89,12 @@ else()
 		GIT_REPOSITORY https://github.com/stillwater-sc/universal.git
 		GIT_TAG        main
 		GIT_SHALLOW    TRUE
+		# Header-only: SOURCE_SUBDIR names a directory with no CMakeLists.txt, so
+		# MakeAvailable populates the sources but does NOT add_subdirectory
+		# (avoids building universal's own targets).
+		SOURCE_SUBDIR  _header_only_no_build
 	)
-	# Header-only: populate but do NOT add_subdirectory (avoids building targets)
-	FetchContent_GetProperties(universal)
-	if(NOT universal_POPULATED)
-		FetchContent_MakeAvailable(universal)
-	endif()
+	FetchContent_MakeAvailable(universal)
 	# Universal headers use two include conventions:
 	#   - External: #include <sw/universal/...>  (needs include/)
 	#   - Internal: #include <universal/...>     (needs include/sw/)
@@ -115,12 +115,12 @@ else()
 		GIT_REPOSITORY https://github.com/stillwater-sc/mtl5.git
 		GIT_TAG        main
 		GIT_SHALLOW    TRUE
+		# Header-only: SOURCE_SUBDIR names a directory with no CMakeLists.txt, so
+		# MakeAvailable populates the sources but does NOT add_subdirectory
+		# (avoids building mtl5's own targets).
+		SOURCE_SUBDIR  _header_only_no_build
 	)
-	# Header-only: populate but do NOT add_subdirectory (avoids building targets)
-	FetchContent_GetProperties(mtl5)
-	if(NOT mtl5_POPULATED)
-		FetchContent_MakeAvailable(mtl5)
-	endif()
+	FetchContent_MakeAvailable(mtl5)
 	# Plain INTERFACE (not SYSTEM) on purpose -- see the note above FetchContent.
 	target_include_directories(${PROJECT_NAME} INTERFACE
 		$<BUILD_INTERFACE:${mtl5_SOURCE_DIR}/include>)
