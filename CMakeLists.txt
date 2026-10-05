@@ -1,8 +1,8 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 4.0)
 
 if(NOT DEFINED MPBLAS_MAJOR)
 	set(MPBLAS_MAJOR 0)
-	set(MPBLAS_MINOR 1)
+	set(MPBLAS_MINOR 2)
 	set(MPBLAS_PATCH 0)
 endif()
 
@@ -93,7 +93,7 @@ else()
 	# Header-only: populate but do NOT add_subdirectory (avoids building targets)
 	FetchContent_GetProperties(universal)
 	if(NOT universal_POPULATED)
-		FetchContent_Populate(universal)
+		FetchContent_MakeAvailable(universal)
 	endif()
 	# Universal headers use two include conventions:
 	#   - External: #include <sw/universal/...>  (needs include/)
@@ -119,7 +119,7 @@ else()
 	# Header-only: populate but do NOT add_subdirectory (avoids building targets)
 	FetchContent_GetProperties(mtl5)
 	if(NOT mtl5_POPULATED)
-		FetchContent_Populate(mtl5)
+		FetchContent_MakeAvailable(mtl5)
 	endif()
 	# Plain INTERFACE (not SYSTEM) on purpose -- see the note above FetchContent.
 	target_include_directories(${PROJECT_NAME} INTERFACE
