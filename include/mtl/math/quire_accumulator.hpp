@@ -6,7 +6,7 @@
 // A quire is a fixed-size super-accumulator that captures sums of products of a
 // fixed-size arithmetic type EXACTLY, deferring rounding to a single conversion
 // at the end. The pattern applies to any fixed-size arithmetic that Universal
-// exposes a quire for -- posit, cfloat, lns, fixpnt, dbns.
+// exposes a quire for -- posit, bposit, cfloat, lns, fixpnt, dbns.
 //
 // Specializes mtl::math::accumulator_traits<Acc, Value> so that MTL5's
 // mixed-precision kernels -- dot()/mult()/norms(), see
@@ -34,8 +34,8 @@
 //                        preferring quire_resolve keeps the exact-dot-product
 //                        promise for element types wider than double.
 //
-// The quire-capable aggregator headers (posit.hpp / cfloat.hpp / lns.hpp /
-// fixpnt.hpp) now pull in their own fdp.hpp, so quire_mul / quire_resolve are
+// The quire-capable aggregator headers (posit.hpp / bposit.hpp / cfloat.hpp /
+// lns.hpp / fixpnt.hpp) now pull in their own fdp.hpp, so quire_mul / quire_resolve are
 // reachable from the number-system header alone -- no explicit fdp.hpp include
 // needed (stillwater-sc/universal#1201, #1244, #1245).
 //
@@ -52,6 +52,10 @@
 // Known Universal exactness limitations these element types inherit (the study
 // applications/level1/dot_accumulator_study quantifies them):
 //   - posit           : exact -- the quire delivers true single-event rounding.
+//   - bposit          : exact -- quire_traits<bposit> places the smallest product
+//                        bit (2 (minscale - F_min)) on bit 0, so every product of
+//                        two b-posits lands exactly; the span grows with n
+//                        (776 / 808 / 872 bits for bposit16/32/64).
 //   - cfloat (no subn.): quire_traits<cfloat>::radix_point is undersized, so a
 //                        quire dot floors at ~2^-radix_point (~1e-9 for
 //                        cfloat<16,5>) instead of exact (stillwater-sc/universal#1202).
@@ -63,6 +67,7 @@
 #include <type_traits>  // std::is_same_v
 
 #include <universal/number/posit/posit.hpp>     // aggregator pulls posit/fdp.hpp (quire_mul/quire_resolve)
+#include <universal/number/bposit/bposit.hpp>   // aggregator pulls bposit/fdp.hpp
 #include <universal/number/cfloat/cfloat.hpp>   // aggregator pulls cfloat/fdp.hpp
 #include <universal/number/lns/lns.hpp>         // aggregator pulls lns/fdp.hpp
 #include <universal/number/fixpnt/fixpnt.hpp>   // aggregator pulls fixpnt/fdp.hpp
@@ -100,6 +105,34 @@ struct accumulator_traits<sw::universal::quire<sw::universal::posit<nbits, es>, 
         }
     }
 
+    static void add_product(Acc& a, const Value& m, const Value& v) {
+        a += sw::universal::quire_mul(m, v);
+    }
+};
+
+/// bposit quire: Gustafson's bounded posit <N, rS, eS>. Unlike posit above, this
+/// binds the limb type `bt` too, so the standard aliases (bposit16/32/64, whose
+/// limbs are uint16/uint32/uint64) and any explicit `bt` all match.
+template <unsigned nbits, unsigned rs, unsigned es, typename bt,
+          unsigned capacity, typename LimbType>
+struct accumulator_traits<sw::universal::quire<sw::universal::bposit<nbits, rs, es, bt>, capacity, LimbType>,
+                           sw::universal::bposit<nbits, rs, es, bt>> {
+    using Value = sw::universal::bposit<nbits, rs, es, bt>;
+    using Acc   = sw::universal::quire<Value, capacity, LimbType>;
+
+    static void clear(Acc& a) { a.clear(); }
+    static void assign(Acc& a, const Value& v) {
+        a.clear();
+        a += sw::universal::quire_mul(v, Value(1));
+    }
+    template <typename Result = Value>
+    static Result value(const Acc& a) {
+        if constexpr (std::is_same_v<Result, Value>) {
+            return sw::universal::quire_resolve(a);   // exact single-event rounding, posit-standard saturation
+        } else {
+            return a.template convert_to<Result>();
+        }
+    }
     static void add_product(Acc& a, const Value& m, const Value& v) {
         a += sw::universal::quire_mul(m, v);
     }

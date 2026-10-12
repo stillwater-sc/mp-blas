@@ -7,16 +7,20 @@
 // accumulates all products exactly (posit/cfloat) and rounds once, so it must
 // recover the small terms that naive same-precision accumulation drops.
 //
-// Element types: posit, cfloat, and lns. Two invariants are checked:
+// Element types: posit, bposit, cfloat, and lns. Two invariants are checked:
 //   * ALWAYS: the quire is no worse than native same-precision accumulation
 //     (holds for every element type; robust to the known Universal quire
 //     limitations in cfloat<16,5>/lns -- see stillwater-sc/universal#1202/#1203).
-//   * EXACT: for the types whose quire is genuinely exact -- posit at any width,
+//   * EXACT: for the types whose quire is genuinely exact -- posit and bposit at any width,
 //     wide cfloat, and ANY subnormal-enabled cfloat -- the quire recovers the
 //     swamped terms to (near) zero error. Subnormals widen
 //     quire_traits<cfloat>::radix_point enough to hold a product's full
 //     significand, which is the workaround for universal#1202; a narrow cfloat
 //     WITHOUT subnormals still only gets the no-worse-than-native guarantee.
+//
+// bposit additionally checks that the bridge rounds exactly as Universal's own
+// fdp does: mtl::dot<quire<bposit>, bposit> must be bit-identical to
+// sw::universal::fdp on the same vectors.
 //
 // Returns non-zero on failure (no external test framework).
 #include <cmath>
@@ -24,12 +28,14 @@
 #include <cstdint>
 #include <iostream>
 #include <string>
+#include <vector>
 
 #include <mtl/math/quire_accumulator.hpp>   // must precede dot.hpp's use of the traits
 #include <mtl/vec/dense_vector.hpp>
 #include <mtl/operation/dot.hpp>
 
 #include <universal/number/posit/posit.hpp>
+#include <universal/number/bposit/bposit.hpp>
 #include <universal/number/cfloat/cfloat.hpp>
 #include <universal/number/lns/lns.hpp>
 
@@ -117,6 +123,39 @@ double dense_quire_relerr() {
     return static_cast<double>(std::abs(static_cast<long double>(q) - ref) / denom);
 }
 
+// The bridge's round-to-Value path (quire_resolve) must agree bit for bit with
+// Universal's own fused dot product. Random encodings over the whole range, so
+// products reach both saturation ends and the quire's lowest bits.
+template <typename T>
+bool bridge_matches_fdp(const std::string& name) {
+    using Quire = sw::universal::quire<T>;
+    std::uint64_t state = 0x853C49E6748FEA9Bull;
+    auto next = [&]() {
+        state = state * 6364136223846793005ull + 1442695040888963407ull;
+        T v; v.setbits(state >> (64 - T::nbits));
+        if (v.isnar()) v.setzero();
+        return v;
+    };
+    int mismatches = 0;
+    for (int t = 0; t < 200; ++t) {
+        const std::size_t n = 1 + static_cast<std::size_t>(t % 40);
+        mtl::vec::dense_vector<T> x(n, T(0)), y(n, T(0));
+        std::vector<T> sx(n), sy(n);
+        for (std::size_t i = 0; i < n; ++i) {
+            sx[i] = next(); sy[i] = next();
+            x[i] = sx[i]; y[i] = sy[i];
+        }
+        const T bridged = mtl::dot<Quire, T>(x, y);
+        const T direct  = sw::universal::fdp(sx, sy);
+        if (bridged != direct) ++mismatches;
+    }
+    if (mismatches != 0) {
+        std::cerr << name << ": bridge disagrees with sw::universal::fdp in " << mismatches << " of 200 dot products\n";
+        return false;
+    }
+    return true;
+}
+
 } // namespace
 
 int main() {
@@ -125,6 +164,7 @@ int main() {
     // No-worse-than-native holds for every wired element type (robust to the
     // known Universal quire limitations in cfloat<16,5> / lns).
     if (!quire_no_worse_than_native<sw::universal::posit<16, 2>>("posit<16,2>")) ++failures;
+    if (!quire_no_worse_than_native<sw::universal::bposit16>("bposit16")) ++failures;
     if (!quire_no_worse_than_native<sw::universal::cfloat<16, 5>>("cfloat<16,5>")) ++failures;
     if (!quire_no_worse_than_native<sw::universal::lns<16, 8>>("lns<16,8>")) ++failures;
 
@@ -133,6 +173,24 @@ int main() {
     // win over native (quire_err 0 vs native_err 0.0156) on this swamping case.
     if (!quire_exact<sw::universal::posit<16, 2>>("posit<16,2>")) ++failures;
     if (!quire_exact<sw::universal::posit<32, 2>>("posit<32,2>")) ++failures;
+    if (!quire_exact<sw::universal::bposit16>("bposit16")) ++failures;
+    if (!quire_exact<sw::universal::bposit32>("bposit32")) ++failures;
+
+    // bposit: the bridge rounds as Universal's fdp does, and a dense dot of
+    // full-significand values is exact (a bposit16 product has at most 26
+    // significand bits, so the long-double reference is itself exact).
+    if (!bridge_matches_fdp<sw::universal::bposit16>("bposit16")) ++failures;
+    if (!bridge_matches_fdp<sw::universal::bposit32>("bposit32")) ++failures;
+    if (!bridge_matches_fdp<sw::universal::bposit64>("bposit64")) ++failures;   // wider than double: rounding through double would differ
+    if (!bridge_matches_fdp<sw::universal::bposit<8, 4, 0, std::uint8_t>>("bposit<8,4,0>")) ++failures;
+    {
+        const double e = dense_quire_relerr<sw::universal::bposit16>();
+        std::cout << "bposit16 dense quire relerr: " << e << '\n';
+        if (!(e <= 1e-15)) {
+            std::cerr << "bposit16 quire not exact on the dense dot (relerr " << e << ")\n";
+            ++failures;
+        }
+    }
     if (!quire_exact<sw::universal::cfloat<32, 8>>("cfloat<32,8>")) ++failures;
 
     // The universal#1202 workaround, pinned on a construction that can actually
