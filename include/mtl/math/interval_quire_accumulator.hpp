@@ -20,7 +20,8 @@
 // This header lives in mp-blas, NOT in MTL5: MTL5 is the general linear-algebra
 // layer and never depends on Universal, so all MTL5 + Universal coupling belongs
 // in the composition layer. It keeps the <mtl/math/...> path so it sits next to
-// the generic accumulator_traits it extends, mirroring quire_accumulator.hpp.
+// the generic accumulator_traits it extends. (The plain quire needs no such
+// header: Universal defines its accumulator_* functions, found by ADL.)
 //
 // Usage (pass BOTH the accumulator AND the result type, since dot's Result
 // defaults to the accumulator, which here is a quire pair, not a number):

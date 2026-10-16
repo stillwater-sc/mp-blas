@@ -21,7 +21,7 @@
 //            out -- the dot(x,x) formulation is the portable mixed path).
 //
 // Element types: posit, cfloat, and lns -- each admits the generic Universal
-// quire via mp-blas's quire_accumulator.hpp adapter. Error is relative to a
+// quire, whose accumulator_* functions MTL5's accumulator_traits finds by ADL. Error is relative to a
 // long-double reference over the SAME quantized element values, so quantization
 // error cancels and only the accumulator differs.
 //
@@ -34,7 +34,6 @@
 #include <iostream>
 #include <string>
 
-#include <mtl/math/quire_accumulator.hpp>   // must precede dot.hpp's traits use
 #include <mtl/vec/dense_vector.hpp>
 #include <mtl/operation/dot.hpp>
 

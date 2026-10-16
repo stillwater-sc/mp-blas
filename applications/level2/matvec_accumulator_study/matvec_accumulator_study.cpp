@@ -11,7 +11,6 @@
 #include <iostream>
 #include <string>
 
-#include <mtl/math/quire_accumulator.hpp>
 #include <mtl/vec/dense_vector.hpp>
 #include <mtl/mat/dense2D.hpp>
 #include <mtl/operation/mult.hpp>
