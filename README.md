@@ -49,6 +49,10 @@ tests/
   level1/                 # axpy + dot smoke test across number types
   level2/                 # gemv smoke test
   level3/                 # gemm smoke test
+applications/level3/matmul_accumulator_bench/
+                          # time and thread scaling of C = A B per accumulator (plain, fma, quire)
+docs/level3-accumulator-benchmark.md
+                          # how to run it, and results on a hybrid P-core/E-core CPU
 docs/roadmap.md           # milestones and known integration work
 ```
 
