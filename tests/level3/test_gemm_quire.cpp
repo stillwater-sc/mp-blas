@@ -15,7 +15,6 @@
 #include <iostream>
 #include <string>
 
-#include <mtl/math/quire_accumulator.hpp>   // must precede mult.hpp's traits use
 #include <mtl/mat/dense2D.hpp>
 #include <mtl/operation/mult.hpp>
 

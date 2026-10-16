@@ -18,7 +18,7 @@
 //     significand, which is the workaround for universal#1202; a narrow cfloat
 //     WITHOUT subnormals still only gets the no-worse-than-native guarantee.
 //
-// bposit additionally checks that the bridge rounds exactly as Universal's own
+// bposit additionally checks that the quire accumulator rounds exactly as Universal's own
 // fdp does: mtl::dot<quire<bposit>, bposit> must be bit-identical to
 // sw::universal::fdp on the same vectors.
 //
@@ -30,7 +30,6 @@
 #include <string>
 #include <vector>
 
-#include <mtl/math/quire_accumulator.hpp>   // must precede dot.hpp's use of the traits
 #include <mtl/vec/dense_vector.hpp>
 #include <mtl/operation/dot.hpp>
 
@@ -69,7 +68,7 @@ bool quire_no_worse_than_native(const std::string& name) {
     std::cout << name << ": native_err=" << native_err
               << " quire_err=" << quire_err << '\n';
     if (quire_err > native_err) {
-        std::cerr << name << ": quire dot is LESS accurate than native -- adapter broken\n";
+        std::cerr << name << ": quire dot is LESS accurate than native -- accumulator path broken\n";
         return false;
     }
     return true;
@@ -123,11 +122,11 @@ double dense_quire_relerr() {
     return static_cast<double>(std::abs(static_cast<long double>(q) - ref) / denom);
 }
 
-// The bridge's round-to-Value path (quire_resolve) must agree bit for bit with
+// The quire accumulator's round-to-Value path (quire_resolve) must agree bit for bit with
 // Universal's own fused dot product. Random encodings over the whole range, so
 // products reach both saturation ends and the quire's lowest bits.
 template <typename T>
-bool bridge_matches_fdp(const std::string& name) {
+bool accumulator_matches_fdp(const std::string& name) {
     using Quire = sw::universal::quire<T>;
     std::uint64_t state = 0x853C49E6748FEA9Bull;
     auto next = [&]() {
@@ -145,12 +144,12 @@ bool bridge_matches_fdp(const std::string& name) {
             sx[i] = next(); sy[i] = next();
             x[i] = sx[i]; y[i] = sy[i];
         }
-        const T bridged = mtl::dot<Quire, T>(x, y);
+        const T accumulated = mtl::dot<Quire, T>(x, y);
         const T direct  = sw::universal::fdp(sx, sy);
-        if (bridged != direct) ++mismatches;
+        if (accumulated != direct) ++mismatches;
     }
     if (mismatches != 0) {
-        std::cerr << name << ": bridge disagrees with sw::universal::fdp in " << mismatches << " of 200 dot products\n";
+        std::cerr << name << ": quire accumulator disagrees with sw::universal::fdp in " << mismatches << " of 200 dot products\n";
         return false;
     }
     return true;
@@ -176,13 +175,13 @@ int main() {
     if (!quire_exact<sw::universal::bposit16>("bposit16")) ++failures;
     if (!quire_exact<sw::universal::bposit32>("bposit32")) ++failures;
 
-    // bposit: the bridge rounds as Universal's fdp does, and a dense dot of
+    // bposit: the quire accumulator rounds as Universal's fdp does, and a dense dot of
     // full-significand values is exact (a bposit16 product has at most 26
     // significand bits, so the long-double reference is itself exact).
-    if (!bridge_matches_fdp<sw::universal::bposit16>("bposit16")) ++failures;
-    if (!bridge_matches_fdp<sw::universal::bposit32>("bposit32")) ++failures;
-    if (!bridge_matches_fdp<sw::universal::bposit64>("bposit64")) ++failures;   // wider than double: rounding through double would differ
-    if (!bridge_matches_fdp<sw::universal::bposit<8, 4, 0, std::uint8_t>>("bposit<8,4,0>")) ++failures;
+    if (!accumulator_matches_fdp<sw::universal::bposit16>("bposit16")) ++failures;
+    if (!accumulator_matches_fdp<sw::universal::bposit32>("bposit32")) ++failures;
+    if (!accumulator_matches_fdp<sw::universal::bposit64>("bposit64")) ++failures;   // wider than double: rounding through double would differ
+    if (!accumulator_matches_fdp<sw::universal::bposit<8, 4, 0, std::uint8_t>>("bposit<8,4,0>")) ++failures;
     {
         const double e = dense_quire_relerr<sw::universal::bposit16>();
         std::cout << "bposit16 dense quire relerr: " << e << '\n';

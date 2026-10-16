@@ -15,7 +15,6 @@
 #include <string>
 #include <vector>
 
-#include <mtl/math/quire_accumulator.hpp>
 #include <mtl/vec/dense_vector.hpp>
 #include <mtl/operation/dot.hpp>
 

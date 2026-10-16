@@ -26,11 +26,12 @@ numbers isolate **accumulation** error, not storage rounding:
 | `promoted` | `dot<double, double>`             | products summed in `double`                  |
 | `quire`    | `dot<quire<T>, double>`           | exact sum of products, single round-out      |
 
-The `quire` accumulator is supplied by mp-blas's
-[`include/mtl/math/quire_accumulator.hpp`](../include/mtl/math/quire_accumulator.hpp),
-which specializes MTL5's `accumulator_traits` for the Universal quire of a
-posit, cfloat, or lns element — MTL5 itself stays free of any Universal
-dependency.
+The `quire` accumulator needs no adapter. Universal defines the quire's
+`accumulator_*` functions next to `quire`, and MTL5's `accumulator_traits` finds
+them by argument-dependent lookup, so neither library includes the other and
+MTL5 stays free of any Universal dependency (stillwater-sc/mtl5#582). Until
+then mp-blas carried its own `quire_accumulator.hpp` specialization; the
+results below were produced with it.
 
 Error is relative to a `long double` reference over the **same quantized element
 values**, so quantization error cancels and only the accumulator differs.

@@ -20,7 +20,9 @@
   specializing MTL5's `accumulator_traits` for a Universal posit quire (mirrors
   mp-iterative's adapter; kept local so mp-blas has no cross-repo header
   dependency). Test: `tests/level1/test_dot_quire.cpp` (quire recovers terms
-  native same-precision accumulation swamps).
+  native same-precision accumulation swamps). Since replaced: Universal
+  defines the quire's `accumulator_*` functions and MTL5 finds them by ADL, so
+  the adapter header was deleted (stillwater-sc/mtl5#582).
 - [x] Accumulator sweep for `dot`: native vs fma vs promoted `double` vs exact
   quire, as a function of vector length and element precision
   (`applications/level1/dot_accumulator_study`). Write-up:

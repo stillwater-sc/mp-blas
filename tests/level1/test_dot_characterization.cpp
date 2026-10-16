@@ -27,7 +27,6 @@
 
 #include <sw/mp_blas/dot_characterization.hpp>
 
-#include <mtl/math/quire_accumulator.hpp>
 #include <mtl/vec/dense_vector.hpp>
 #include <mtl/operation/dot.hpp>
 
