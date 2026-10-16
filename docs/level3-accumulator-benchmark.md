@@ -132,7 +132,7 @@ Quire speedup over one thread:
   - At n = 128, `B` fits in L2 and configuration 1 runs at 2.2 GMAC/s. At
     n = 1024 it runs at 0.55 GMAC/s, about 13× below the default i-k-j kernel.
   - Blocking or packing `B` for the accumulator path would close most of that
-    gap. The quire is compute-bound and wouldn't notice.
+    gap (stillwater-sc/mtl5#587). The quire is compute-bound and wouldn't notice.
 - **At n = 128 the native configurations are too short to time.** The default
   and plain kernels finish in under a millisecond, so their thread scaling there
   measures the pool's wake-up cost, not the kernel. Use `-c default,plain,fma`
