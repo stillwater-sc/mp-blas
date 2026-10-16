@@ -12,6 +12,11 @@ add_subdirectory(level1/dot_accumulator_study)
 add_subdirectory(level2/matvec_accumulator_study)
 add_subdirectory(level3/matmul_accumulator_study)
 
+# The cost side of the level-3 study: time and thread scaling of C = A B under
+# the three accumulator configurations (plain, fma, quire). run_sweep.sh sweeps
+# thread counts and P-core / E-core placement.
+add_subdirectory(level3/matmul_accumulator_bench)
+
 # Triangular-solve accuracy across number precisions (feeds mp-spice).
 add_subdirectory(level2/trsv_precision)
 
