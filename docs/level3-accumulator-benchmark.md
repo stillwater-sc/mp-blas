@@ -60,6 +60,29 @@ The machine has 8 P-cores with SMT (CPUs 0–15, up to 5.0 GHz) and 4 E-cores
 (5.18.0 plus #584) and Universal with #1703. Throughput is in million
 multiply-adds per second (MMAC/s), best of 3.
 
+![Throughput per accumulator configuration, one P-core thread, n = 128](img/level3-acc-throughput.svg)
+
+![Quire GEMM speedup vs threads, by core placement, n = 128](img/level3-acc-quire-scaling.svg)
+
+![Plain and fma accumulator speedup vs threads, unpinned vs P-cores only, n = 1024](img/level3-acc-native-scaling.svg)
+
+![Single-thread throughput at n = 128 vs n = 1024](img/level3-acc-size.svg)
+
+The raw CSVs from `run_sweep.sh` are in
+[`results/level3-accumulator-benchmark/`](results/level3-accumulator-benchmark/). To regenerate
+the charts from them:
+
+```bash
+D=docs/results/level3-accumulator-benchmark
+applications/level3/matmul_accumulator_bench/plot_sweep.py \
+  --n128 $D/i7-12700K_n128.csv \
+  --n1024 $D/i7-12700K_n1024_double.csv $D/i7-12700K_n1024_float.csv \
+  --out docs/img --machine "Intel Core i7-12700K (8P + 4E)"
+```
+
+To chart another machine, run the two sweeps under "Running it" with `-o file.csv` and
+point `plot_sweep.py` at those files.
+
 ### n = 128, all configurations
 
 Single thread on a P-core:
